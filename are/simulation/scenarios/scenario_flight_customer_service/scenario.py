@@ -2,6 +2,7 @@ import textwrap
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
+from os import system
 from re import A
 from typing import Any
 
@@ -147,18 +148,14 @@ class ScenarioFlightCustomerServiceWithMedicalBag(Scenario):
     start_time: float | None = 0
     duration: float | None = 2
     nb_turns: int | None = 10
+    system_prompt: str | None = field(default=CLIENT_PROMPT)
     additional_system_prompt: str | None = field(default=FLIGHT_CUSTOMER_SERVICE_PROMPT)
 
     def init_and_populate_apps(self, *args, **kwargs) -> None:
         """Initialize apps and populate with sample data"""
-        llm = build_llm()
-        user_llm_system_prompt = CLIENT_PROMPT
-        user_proxy = UserProxyLLM(llm=llm, system_message=user_llm_system_prompt)
 
         # Create Agent User Interface with the flight app
-        agui = AgentUserInterface(
-            user_proxy=user_proxy,
-        )
+        agui = AgentUserInterface()
 
         email_instance_1 = Email(
             email_address="alex.sharma@gmail.com",
@@ -190,60 +187,60 @@ class ScenarioFlightCustomerServiceWithMedicalBag(Scenario):
         booking_instance_1 = BookingInformation(
             confirmation_number="UA_confirm_123",
             passenger_name="Alex Sharma",
-            flight_information=flight_information_1,
-            loyalty_tier=LoyaltyTier.GOLD,
-            ticket_type=TicketType.BUSINESS,
+            flight_number="UA123",
+            loyalty_tier=LoyaltyTier.GOLD.value,
+            ticket_type=TicketType.BUSINESS.value,
             baggage_info=[],
         )
         booking_instance_2 = BookingInformation(
             confirmation_number="UA_confirm_456",
             passenger_name="Bob Wang",
-            flight_information=flight_information_2,
-            loyalty_tier=LoyaltyTier.BRONZE,
-            ticket_type=TicketType.FIRST_CLASS,
+            flight_number="UA456",
+            loyalty_tier=LoyaltyTier.BRONZE.value,
+            ticket_type=TicketType.FIRST_CLASS.value,
             baggage_info=[],
         )
 
         baggage_info_1 = BaggageInfo(
-            bagage_type=BaggageType.NORMAL_BAG,
-            baggage_checkin_type=BaggageCheckinType.CHECKED_LUGGAGE,
+            bagage_type=BaggageType.NORMAL_BAG.value,
+            baggage_checkin_type=BaggageCheckinType.CHECKED_LUGGAGE.value,
         )
 
         user_membership_instance_1 = UserMemberInformation(
             name="Alex Sharma",
             email=email_instance_1.email_address,
             loyalty_member_id="UA_member_123",
-            loyalty_tier=LoyaltyTier.GOLD,
+            loyalty_tier=LoyaltyTier.GOLD.value,
         )
         user_membership_instance_2 = UserMemberInformation(
             name="Bob Wang",
             email="bob.wang@gmail.com",
             loyalty_member_id="UA_member_456",
-            loyalty_tier=LoyaltyTier.NORMAL,
+            loyalty_tier=LoyaltyTier.NORMAL.value,
         )
         regular_baggage_policy_1 = RegularBaggagePolicy(
-            ticket_type=TicketType.BUSINESS,
-            loyalty_tier=LoyaltyTier.GOLD,
+            ticket_type=TicketType.BUSINESS.value,
+            loyalty_tier=LoyaltyTier.GOLD.value,
             free_checked_bag_number=1,
         )
         regular_baggage_policy_2 = RegularBaggagePolicy(
-            ticket_type=TicketType.ECONOMY,
-            loyalty_tier=LoyaltyTier.GOLD,
+            ticket_type=TicketType.ECONOMY.value,
+            loyalty_tier=LoyaltyTier.GOLD.value,
             free_checked_bag_number=0,
         )
         regular_baggage_policy_3 = RegularBaggagePolicy(
-            ticket_type=TicketType.ECONOMY,
-            loyalty_tier=LoyaltyTier.NORMAL,
+            ticket_type=TicketType.ECONOMY.value,
+            loyalty_tier=LoyaltyTier.NORMAL.value,
             free_checked_bag_number=0,
         )
         special_baggage_policy_1 = SpecialBaggagePolicy(
-            bagage_type=BaggageType.MEDICAL_BAG,
+            bagage_type=BaggageType.MEDICAL_BAG.value,
             allow_to_carry_on=True,
             allow_to_check_in=True,
             require_additional_fee=False,
         )
         special_baggage_policy_2 = SpecialBaggagePolicy(
-            bagage_type=BaggageType.SPORTS_EQUIPMENT,
+            bagage_type=BaggageType.SPORTS_EQUIPMENT.value,
             allow_to_carry_on=False,
             allow_to_check_in=True,
             require_additional_fee=True,
@@ -254,7 +251,7 @@ class ScenarioFlightCustomerServiceWithMedicalBag(Scenario):
         # Populate with Alex Sharma's flight data
         client_app.name = "Alex Sharma"
         client_app.emails = [email_instance_1, email_instance_2]
-        client_app.baggage_info = [baggage_info_1]
+        client_app.baggage_info = [BaggageType.NORMAL_BAG]
 
         # Create Flight Customer Service App and populate with data
         customer_service_app = FlightCustomerServiceApp()
@@ -279,7 +276,7 @@ class ScenarioFlightCustomerServiceWithMedicalBag(Scenario):
         ]
 
         # Store apps for scenario use
-        self.apps = [agui, customer_service_app, client_app]
+        self.apps = [agui, client_app, customer_service_app]
 
     def build_events_flow(self) -> None:
         """Define the sequence of events that will occur during the scenario"""

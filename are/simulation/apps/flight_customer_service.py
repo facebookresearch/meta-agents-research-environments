@@ -82,8 +82,8 @@ class FlightInformation:
 
 @dataclass(kw_only=True)
 class BaggageInfo:
-    bagage_type: Optional[BaggageType] = BaggageType.NORMAL_BAG
-    baggage_checkin_type: BaggageCheckinType = BaggageCheckinType.CARRY_ON
+    bagage_type: str = BaggageType.NORMAL_BAG.value
+    baggage_checkin_type: str = BaggageCheckinType.CARRY_ON.value
     weight: Optional[str] = None
     size: Optional[str] = None
     check_type: Optional[str] = None
@@ -91,21 +91,21 @@ class BaggageInfo:
 
 @dataclass(kw_only=True)
 class BookingInformation:
-    confirmation_number: str
-    flight_information: FlightInformation
-    passenger_name: str
-    loyalty_tier: Optional[LoyaltyTier] = None
-    ticket_type: TicketType = TicketType.ECONOMY
-    baggage_info: list[BaggageInfo] = field(default_factory=list)
+    confirmation_number: str = ""
+    flight_number: str = ""
+    passenger_name: str = ""
+    loyalty_tier: str = LoyaltyTier.NORMAL.value
+    ticket_type: str = TicketType.ECONOMY.value
+    baggage_info: list[str] = field(default_factory=list)
 
 
 @dataclass(kw_only=True)
 class UserMemberInformation:
-    name: Optional[str] = None
-    email: Optional[str] = None
+    name: str = ""
+    email: str = ""
     air_line: str = "Unity Air"
-    loyalty_member_id: Optional[str] = None
-    loyalty_tier: Optional[LoyaltyTier] = None
+    loyalty_member_id: str = ""
+    loyalty_tier: str = ""
     points_balance: int = 0
     lifetime_miles: int = 0
     member_since: str = ""
@@ -121,8 +121,8 @@ class UserInformation:
 
 @dataclass(kw_only=True)
 class RegularBaggagePolicy:
-    ticket_type: TicketType = TicketType.ECONOMY
-    loyalty_tier: LoyaltyTier = LoyaltyTier.NORMAL
+    ticket_type: str = TicketType.ECONOMY.value
+    loyalty_tier: str = LoyaltyTier.NORMAL.value
     free_checked_bag_number: int = 0
     checked_bag_weight_allowance: str = "50 lbs"
     additional_fee_for_checked_bag: str = "50 USD"
@@ -131,7 +131,7 @@ class RegularBaggagePolicy:
 
 @dataclass(kw_only=True)
 class SpecialBaggagePolicy:
-    bagage_type: Optional[BaggageType] = None
+    bagage_type: Optional[str] = None
     allow_to_check_in: bool = False
     allow_to_carry_on: bool = False
     require_additional_fee: bool = True
@@ -172,42 +172,69 @@ class FlightClientApp(App):
     def __post_init__(self):
         super().__init__(self.name)
         self.air_line: str = "Unity Air"
-        self.bookings: Optional[BookingInformation] = None
+        self.bookings: BookingInformation = BookingInformation()
         self.user_membership_info: Optional[UserMemberInformation] = None
         self.user_info: UserInformation = UserInformation()
         self.medical_folder: MedicalDocFolder = MedicalDocFolder()
         self.emails: list[Email] = []
-        self.baggage_info: list[BaggageInfo] = []
+        self.baggage_info: list[BaggageType] = []
 
     def reset(self):
         super().reset()
         self.air_line: str = "Unity Air"
-        self.bookings: Optional[BookingInformation] = None
+        self.bookings: BookingInformation = BookingInformation()
         self.user_membership_info: Optional[UserMemberInformation] = None
         self.user_info: UserInformation = UserInformation()
         self.medical_folder: MedicalDocFolder = MedicalDocFolder()
         self.emails: list[Email] = []
-        self.baggage_info: list[BaggageInfo] = []
+        self.baggage_info: list[BaggageType] = []
 
     def get_state(self) -> dict[str, Any]:
         """Return the current state of the app."""
         return {
-            "bookings": self.bookings,
-            "user_membership_info": self.user_membership_info,
-            "user_info": self.user_info,
-            "medical_folder": self.medical_folder,
-            "emails": self.emails,
-            "air_line": self.air_line,
-            "baggage_info": self.baggage_info,
+            "bookings": get_state_dict(
+                self.bookings,
+                [
+                    "confirmation_number",
+                    "flight_number",
+                    "passenger_name",
+                    "loyalty_tier",
+                    "ticket_type",
+                    "baggage_info",
+                ],
+            ),
+            "user_membership_info": get_state_dict(
+                self.user_membership_info,
+                ["name", "email", "air_line", "loyalty_member_id", "loyalty_tier"],
+            ),
+            "medical_folder": get_state_dict(self.medical_folder, ["medical_docs"]),
+            "emails": [
+                get_state_dict(
+                    email,
+                    ["email_address", "from_address", "to_address", "title", "content"],
+                )
+                for email in self.emails
+            ],
+            "baggage_info": [
+                get_state_dict(
+                    baggage_info,
+                    [
+                        "bagage_type",
+                        "baggage_checkin_type",
+                        "weight",
+                        "size",
+                        "check_type",
+                    ],
+                )
+                for baggage_info in self.baggage_info
+            ],
         }
 
     def load_state(self, state_dict: dict[str, Any]) -> None:
         """Load state into the app."""
-        self.bookings = state_dict.get("bookings")
+        self.bookings = state_dict.get("bookings", {}).items()
         self.user_membership_info = state_dict.get("user_membership_info")
-        self.user_info = state_dict.get("user_info", {})
         self.medical_folder = state_dict.get("medical_folder", {})
-        self.air_line = state_dict.get("air_line", "Unity Air")
         self.baggage_info = state_dict.get("baggage_info", [])
 
     @type_check
@@ -260,19 +287,14 @@ class FlightClientApp(App):
         If medical note requires a medical bag, add it to the baggage info.
         """
         if len(self.medical_folder.medical_docs) > 0:
-            self.baggage_info.append(
-                BaggageInfo(
-                    bagage_type=BaggageType.MEDICAL_BAG,
-                    baggage_checkin_type=BaggageCheckinType.CARRY_ON,
-                )
-            )
+            self.baggage_info.append(BaggageType.MEDICAL_BAG)
 
     @type_check
     @app_tool()
     @event_registered(operation_type=OperationType.WRITE)
     def get_baggage_info(
         self,
-    ) -> list[BaggageInfo]:
+    ) -> list[BaggageType]:
         """
         Get the baggage information user.
         """
@@ -295,11 +317,11 @@ class FlightClientApp(App):
                 loyalty_member_id = match.group(1)
                 loyalty_tier = match.group(2)
                 self.user_membership_info = UserMemberInformation(
-                    name=self.name,
+                    name=self.name or "",
                     email=email.email_address,
                     air_line=self.air_line,
                     loyalty_member_id=loyalty_member_id,
-                    loyalty_tier=LoyaltyTier[loyalty_tier],
+                    loyalty_tier=loyalty_tier,
                 )
         return self.user_membership_info
 
@@ -321,7 +343,7 @@ class FlightClientApp(App):
                 confirmation_number = match.group(2)
                 self.bookings = BookingInformation(
                     confirmation_number=confirmation_number,
-                    flight_information=FlightInformation(flight_number=flight_number),
+                    flight_number=flight_number,
                     passenger_name=(self.user_info.name or ""),
                 )
         return self.bookings
@@ -344,43 +366,82 @@ class FlightCustomerServiceApp(App):
     def __post_init__(self):
         super().__init__(self.name)
         self.air_line: str = "Unity Air"
-        self.user_info: UserInformation = UserInformation()
         self.client_booking_info: list[BookingInformation] = []
         self.client_membership_info: list[UserMemberInformation] = []
-        self.client_user_info: list[UserInformation] = []
         self.regular_bag_policies: list[RegularBaggagePolicy] = []
         self.special_bag_policies: list[SpecialBaggagePolicy] = []
 
     def reset(self):
         super().reset()
         self.air_line: str = "Unity Air"
-        self.user_info: UserInformation = UserInformation()
-        self.client_user_info: list[UserInformation] = []
         self.client_booking_info: list[BookingInformation] = []
         self.client_membership_info: list[UserMemberInformation] = []
-        self.user_info: UserInformation = UserInformation()
         self.regular_bag_policies: list[RegularBaggagePolicy] = []
         self.special_bag_policies: list[SpecialBaggagePolicy] = []
 
     def get_state(self) -> dict[str, Any]:
         """Return the current state of the app."""
         return {
-            "bookings": self.bookings,
-            "user_info": self.user_info,
-            "client_bookings": self.client_booking_info,
-            "client_membership_info": self.client_membership_info,
-            "regular_bag_policies": self.regular_bag_policies,
-            "special_bag_policies": self.special_bag_policies,
+            "client_booking_info": [
+                get_state_dict(
+                    book_info,
+                    [
+                        "confirmation_number",
+                        "flight_number",
+                        "passenger_name",
+                        "loyalty_tier",
+                        "ticket_type",
+                        "baggage_info",
+                    ],
+                )
+                for book_info in self.client_booking_info
+            ],
+            "client_membership_info": [
+                get_state_dict(
+                    membership_info,
+                    [
+                        "name",
+                        "email",
+                        "loyalty_member_id",
+                        "loyalty_tier",
+                    ],
+                )
+                for membership_info in self.client_membership_info
+            ],
+            "regular_bag_policies": [
+                get_state_dict(
+                    regular_bag_policy,
+                    [
+                        "ticket_type",
+                        "loyalty_tier",
+                        "free_checked_bag_number",
+                        "checked_bag_weight_allowance",
+                        "additional_fee_for_checked_bag",
+                        "carry_on_bag_size",
+                    ],
+                )
+                for regular_bag_policy in self.regular_bag_policies
+            ],
+            "special_bag_policies": [
+                get_state_dict(
+                    bag_policy,
+                    [
+                        "bagage_type",
+                        "allow_to_check_in",
+                        "allow_to_carry_on",
+                        "require_additional_fee",
+                        "weight_allowance",
+                        "size_allowance",
+                    ],
+                )
+                for bag_policy in self.special_bag_policies
+            ],
         }
 
     def load_state(self, state_dict: dict[str, Any]) -> None:
         """Load state into the app."""
-        self.air_line = state_dict.get("air_line", "Unity Air")
-        self.user_info = state_dict.get("user_info", UserInformation())
-        self.client_user_info = state_dict.get("client_user_info", UserInformation())
         self.client_booking_info = state_dict.get("client_user_info", [])
         self.client_membership_info = state_dict.get("client_membership_info", [])
-        self.user_info: UserInformation = state_dict.get("user_info", UserInformation())
         self.regular_bag_policies = state_dict.get("regular_bag_policies", [])
         self.special_bag_policies = state_dict.get("special_bag_policies", [])
 
@@ -487,7 +548,7 @@ class FlightCustomerServiceApp(App):
     def update_user_booking(
         self,
         client_confirmation_number: str,
-        add_speical_bags: list[BaggageType] = [],
+        add_speical_bags: list[str] = [],
     ):
         """
         Update the user booking information based on the client_confirmation_number.
@@ -495,12 +556,7 @@ class FlightCustomerServiceApp(App):
         """
         new_baggage_info = []
         for speical_bag_type in add_speical_bags:
-            new_baggage_info.append(
-                BaggageInfo(
-                    bagage_type=speical_bag_type,
-                    baggage_checkin_type=BaggageCheckinType.CARRY_ON,
-                )
-            )
+            new_baggage_info.append(speical_bag_type)
         for client_booking_info in self.client_booking_info:
             if client_booking_info.confirmation_number == client_confirmation_number:
                 client_booking_info.baggage_info.extend(new_baggage_info)

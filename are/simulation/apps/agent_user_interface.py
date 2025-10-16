@@ -14,13 +14,10 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable
 
-from inputimeout import TimeoutOccurred, inputimeout
-from termcolor import colored
-
 from are.simulation.agents.user_proxy import UserProxy
 from are.simulation.apps.app import App
-from are.simulation.tool_utils import OperationType, app_tool, data_tool, user_tool
-from are.simulation.types import EventType, event_registered
+from are.simulation.tool_utils import app_tool, data_tool, OperationType, user_tool
+from are.simulation.types import event_registered, EventType
 from are.simulation.utils import from_dict, get_state_dict, type_check
 
 logger = logging.getLogger(__name__)
@@ -118,7 +115,9 @@ class AgentUserInterface(App):
         self.messages = []
         timestamp_offset = float("inf")
         for message_state in state_dict["messages"]:
-            message: AUIMessage = from_dict(AUIMessage, message_state)  # pyright: ignore[reportAssignmentType]/
+            message: AUIMessage = from_dict(
+                AUIMessage, message_state
+            )  # pyright: ignore[reportAssignmentType]/
             timestamp_offset = min(timestamp_offset, message.timestamp)
             if message.time_read:
                 timestamp_offset = min(timestamp_offset, message.time_read)
