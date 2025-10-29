@@ -54,7 +54,7 @@ The fastest way to get started is using `uvx` to run commands directly:
 
 ```bash
 # Run Gaia2 benchmark scenarios
-uvx --from meta-agents-research-environments are-benchmark gaia2-run --hf meta-agents-research-environments/gaia2 --hf_split validation -l 1
+uvx --from meta-agents-research-environments are-benchmark gaia2-run --hf meta-agents-research-environments/gaia2 --hf-split  validation -l 1
 
 # Run custom scenarios
 uvx --from meta-agents-research-environments are-run -s scenario_tutorial -a default
@@ -97,7 +97,7 @@ are-benchmark run -d /path/to/scenarios --agent default --limit 10
 
 **Gaia2 Evaluation**
 ```bash
-are-benchmark gaia2-run --hf meta-agents-research-environments/gaia2 --hf_split validation -l 5
+are-benchmark gaia2-run --hf meta-agents-research-environments/gaia2 --hf-split  validation -l 5
 ```
 
 **Interactive GUI**
@@ -122,11 +122,11 @@ ARE supports multiple AI model providers through LiteLLM:
 ```bash
 # Llama API
 export LLAMA_API_KEY="your-api-key"
-are-benchmark run --hf meta-agents-research-environments/gaia2 --hf_split validation \
+are-benchmark run --hf meta-agents-research-environments/gaia2 --hf-split  validation \
   --model Llama-3.1-70B-Instruct --provider llama-api --agent default
 
 # Local deployment
-are-benchmark run --hf meta-agents-research-environments/gaia2 --hf_split validation \
+are-benchmark run --hf meta-agents-research-environments/gaia2 --hf-split  validation \
   --model your-local-model --provider local \
   --endpoint "http://localhost:8000" --agent default
 ```
@@ -142,7 +142,7 @@ Run any command with `--help` to see all available options.
 export LLAMA_API_KEY="your-api-key"
 
 # Run a validation set to test your setup
-are-benchmark run --hf meta-agents-research-environments/gaia2 --hf_split validation \
+are-benchmark run --hf meta-agents-research-environments/gaia2 --hf-split  validation \
   --model meta-llama/Llama-3.3-70B-Instruct --model_provider novita \
   --agent default --limit 10 --output_dir ./validation_results
 
