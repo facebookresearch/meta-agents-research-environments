@@ -117,12 +117,14 @@ class FallbackFileSystem(AbstractFileSystem):
                             fallback_path
                         ) and self.fallback_fs.isfile(fallback_path):
                             info = self.fallback_fs.info(fallback_path)
+
                             # Update the registry with actual stats
                             self.fallback_stats[rel_path] = LoadedFallbackEntry(
                                 size=info["size"],
                                 mode=info.get("mode", DEFAULT_MODE),
                                 loaded=True,
                             )
+
                             logger.debug(f"Lazy loaded stats for {rel_path}")
                         else:
                             # File doesn't exist in fallback, remove from registry
@@ -204,7 +206,22 @@ class FallbackFileSystem(AbstractFileSystem):
                            would be overwritten by the fallback
         """
         # Parse the fallback_root URI to get a filesystem and path
-        self.fallback_fs, self.fallback_root = url_to_fs(fallback_root)
+        raw_fs, self.fallback_root = url_to_fs(fallback_root)
+
+        # Wrap remote filesystems with CachedRemoteFileSystem for performance
+        if "://" in fallback_root:
+            # This is a remote filesystem - wrap it with caching
+            from are.simulation.apps.utils.cached_remote_filesystem import (
+                CachedRemoteFileSystem,
+            )
+
+            self.fallback_fs = CachedRemoteFileSystem(raw_fs, fallback_root)
+            logger.info(
+                f"Wrapped remote filesystem {fallback_root} with CachedRemoteFileSystem"
+            )
+        else:
+            # Local filesystem - use as-is
+            self.fallback_fs = raw_fs
 
         assert self.fallback_fs is not None
         assert self.fallback_root is not None
@@ -276,7 +293,7 @@ class FallbackFileSystem(AbstractFileSystem):
         if self.fallback_root is None or self.fallback_fs is None:
             return
 
-        # Phase 1: Lightweight discovery - use find() to get all existing files in one call
+        # Phase 1: Lightweight discovery - use find() to get all existing files
         try:
             all_paths = self.fallback_fs.find(
                 self.fallback_root, withdirs=True, detail=False
