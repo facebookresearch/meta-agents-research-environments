@@ -70,7 +70,8 @@ def fallback_fs(tmp_path: Path, fallback_dir: Path):
 
     # Set the fallback root (which now automatically creates placeholders)
     expected_paths = set(TEST_FILES.keys())
-    fs.set_fallback_root(f"memory://{fallback_dir}", expected_paths)
+    # Use str(fallback_dir) directly since fallback_dir already has the leading slash
+    fs.set_fallback_root(f"memory:/{fallback_dir}", expected_paths)
 
     return fs, real_dir, fallback_dir
 
