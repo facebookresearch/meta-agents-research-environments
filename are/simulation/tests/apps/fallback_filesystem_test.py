@@ -14,6 +14,7 @@ from are.simulation.apps.utils.fallback_file_system import (
     DEFAULT_MODE,
     FallbackFileSystem,
 )
+from are.simulation.apps.utils.remote_fs_cache import get_remote_fs_cache
 
 # Test files to create in the main filesystem and fallback
 TEST_FILES = {
@@ -23,6 +24,25 @@ TEST_FILES = {
     "/docs/readme.md": "# Documentation\nThis is a test markdown file.",
     "/docs/reports/report.txt": "Report content\nWith multiple lines",
 }
+
+
+@pytest.fixture(autouse=True)
+def clear_remote_fs_cache():
+    """Clear the global remote filesystem cache before each test to prevent race conditions."""
+    cache = get_remote_fs_cache()
+    cache.clear()
+    # Also clear the cache storage directory to prevent stale files
+    import shutil
+
+    cache_storage = cache._cache_storage
+    if Path(cache_storage).exists():
+        shutil.rmtree(cache_storage)
+        Path(cache_storage).mkdir(parents=True, exist_ok=True)
+    yield
+    # Clean up after the test as well
+    cache.clear()
+    if Path(cache_storage).exists():
+        shutil.rmtree(cache_storage)
 
 
 @pytest.fixture

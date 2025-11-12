@@ -5,10 +5,10 @@
 # the root directory of this source tree.
 
 
+import shutil
 import threading
 from pathlib import Path
 from typing import Any
-from unittest.mock import call, MagicMock
 
 import fsspec
 import pytest
@@ -32,11 +32,31 @@ class MockFileSystem(fsspec.AbstractFileSystem):
         self.exists_count = 0
 
     def find(
-        self, path: str, maxdepth: int | None = None, withdirs: bool = False, **kwargs
-    ) -> list[str]:
+        self,
+        path: str,
+        maxdepth: int | None = None,
+        withdirs: bool = False,
+        detail: bool = False,
+        **kwargs: Any,
+    ) -> list[str] | list[dict[str, Any]]:
         self.find_count += 1
         # Return all files under the path
         result = [p for p in self.files.keys() if p.startswith(path)]
+        if detail:
+            detailed_result: list[dict[str, Any]] = []
+            for file_path in result:
+                content = self.files[file_path]
+                detailed_result.append(
+                    {
+                        "name": file_path,
+                        "size": (
+                            len(content) if isinstance(content, (str, bytes)) else 0
+                        ),
+                        "type": "file",
+                        "mode": 0o644,
+                    }
+                )
+            return detailed_result
         return result
 
     def ls(
@@ -74,7 +94,15 @@ class MockFileSystem(fsspec.AbstractFileSystem):
             "mode": 0o644,
         }
 
-    def open(self, path: str, mode: str = "rb", **kwargs: Any):
+    def open(
+        self,
+        path: str,
+        mode: str = "rb",
+        block_size: int | None = None,
+        cache_options: dict | None = None,
+        compression: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
         self.open_count += 1
         if path not in self.files:
             raise FileNotFoundError(f"File not found: {path}")
@@ -99,10 +127,14 @@ class MockFileSystem(fsspec.AbstractFileSystem):
         return path in self.files
 
     def isdir(self, path: str) -> bool:
-        # Simple check: if any file starts with this path, it's a "directory"
-        return any(
-            p.startswith(path + "/") or p.startswith(path) for p in self.files.keys()
-        )
+        # A path is a directory if:
+        # 1. It's not a file itself
+        # 2. Some file starts with path/ (it contains files)
+        if path in self.files:
+            return False
+        # Ensure path ends with / for proper prefix matching
+        path_with_slash = path if path.endswith("/") else path + "/"
+        return any(p.startswith(path_with_slash) for p in self.files.keys())
 
 
 @pytest.fixture
@@ -120,10 +152,18 @@ def mock_files():
 def isolated_cache():
     """Ensure each test in this module has an isolated cache."""
     # Clear before the test
-    get_remote_fs_cache().clear()
+    cache = get_remote_fs_cache()
+    cache.clear()
+    # Also clear the cache storage directory to prevent stale files
+    cache_storage = cache._cache_storage
+    if Path(cache_storage).exists():
+        shutil.rmtree(cache_storage)
+        Path(cache_storage).mkdir(parents=True, exist_ok=True)
     yield
     # Clear after the test
-    get_remote_fs_cache().clear()
+    cache.clear()
+    if Path(cache_storage).exists():
+        shutil.rmtree(cache_storage)
 
 
 def test_cached_remote_filesystem_find_called_once(mock_files):
@@ -207,7 +247,7 @@ def test_cached_remote_filesystem_shared_cache_across_instances():
         "/test/file1.txt": "Content 1",
         "/test/file2.txt": "Content 2",
     }
-    mock_fs = MockFileSystem(test_files)
+    mock_fs = MockFileSystem(test_files)  # type: ignore[arg-type]
 
     # Create three CachedRemoteFileSystem instances with the same URI
     uri = "mock://test"
@@ -244,19 +284,13 @@ def test_cached_remote_filesystem_file_content_caching(mock_files):
     cached_fs1 = CachedRemoteFileSystem(mock_fs, uri)
     cached_fs2 = CachedRemoteFileSystem(mock_fs, uri)
 
-    initial_open_count = mock_fs.open_count
-
     # Open a file with the first instance
     with cached_fs1.open("/remote/test1.txt", "rb") as f:
         content1 = f.read()
 
-    first_open_count = mock_fs.open_count - initial_open_count
-
     # Open the same file with the second instance
     with cached_fs2.open("/remote/test1.txt", "rb") as f:
         content2 = f.read()
-
-    second_open_count = mock_fs.open_count - initial_open_count
 
     # Content should be the same
     assert content1 == content2
@@ -275,7 +309,7 @@ def test_cached_remote_filesystem_thread_safety():
         "/thread_test/file1.txt": "Content 1",
         "/thread_test/file2.txt": "Content 2",
     }
-    mock_fs = MockFileSystem(test_files)
+    mock_fs = MockFileSystem(test_files)  # type: ignore[arg-type]
     uri = "mock://thread_test"
 
     results = []
@@ -372,8 +406,8 @@ def test_cached_remote_filesystem_different_uris_separate_caches():
         "/uri2/file2.txt": "Content 2B",
         "/uri2/file3.txt": "Content 2C",
     }
-    mock_fs1 = MockFileSystem(test_files1)
-    mock_fs2 = MockFileSystem(test_files2)
+    mock_fs1 = MockFileSystem(test_files1)  # type: ignore[arg-type]
+    mock_fs2 = MockFileSystem(test_files2)  # type: ignore[arg-type]
 
     # Create CachedRemoteFileSystem instances with different URIs
     uri1 = "mock://uri1"
@@ -398,7 +432,7 @@ def test_cached_remote_filesystem_different_uris_separate_caches():
 def test_cached_remote_filesystem_proxy_methods():
     """Test that non-cached methods are properly proxied."""
     mock_files = {"/remote/test.txt": "Content"}
-    mock_fs = MockFileSystem(mock_files)
+    mock_fs = MockFileSystem(mock_files)  # type: ignore[arg-type]
     uri = "mock://remote"
 
     cached_fs = CachedRemoteFileSystem(mock_fs, uri)
@@ -414,11 +448,11 @@ def test_cached_remote_filesystem_proxy_methods():
 def test_cache_clear():
     """Test that clearing the cache removes metadata entries."""
     test_files = {"/clear_test2/test.txt": "Content"}
-    mock_fs = MockFileSystem(test_files)
+    mock_fs = MockFileSystem(test_files)  # type: ignore[arg-type]
     uri = "mock://clear_test2"
 
     # Create first instance
-    cached_fs1 = CachedRemoteFileSystem(mock_fs, uri)
+    CachedRemoteFileSystem(mock_fs, uri)
     assert mock_fs.find_count == 1
 
     # Verify cache has the entry

@@ -9,10 +9,9 @@ import logging
 import os
 from typing import Any
 
-from are.simulation.apps.utils.remote_fs_cache import get_remote_fs_cache
-
 from fsspec import AbstractFileSystem
-from fsspec.spec import AbstractBufferedFile
+
+from are.simulation.apps.utils.remote_fs_cache import get_remote_fs_cache
 
 logger = logging.getLogger(__name__)
 
@@ -72,16 +71,22 @@ class CachedRemoteFileSystem(AbstractFileSystem):
         logger.debug(f"Initialized CachedRemoteFileSystem for {remote_uri}")
 
     def find(
-        self, path: str, maxdepth: int | None = None, withdirs: bool = False, **kwargs
-    ) -> list[str]:
+        self,
+        path: str,
+        maxdepth: int | None = None,
+        withdirs: bool = False,
+        detail: bool = False,
+        **kwargs: Any,
+    ) -> list[str] | list[dict[str, Any]]:
         """
         List all files below path using cached data when possible.
 
         :param path: The path to search from
         :param maxdepth: Maximum depth to search
         :param withdirs: Include directories in results
+        :param detail: If True, return list of dicts with file info
         :param kwargs: Additional arguments
-        :return: List of file paths
+        :return: List of file paths or list of dicts if detail=True
         """
         # Get cached data (doesn't call find() again if already cached)
         if self.remote_uri in self.cache._cache:
@@ -98,10 +103,27 @@ class CachedRemoteFileSystem(AbstractFileSystem):
                     result.append(abs_path)
 
             logger.debug(f"find() returned {len(result)} cached files for {path}")
+            if detail:
+                # Return detailed info for each file
+                detailed_result: list[dict[str, Any]] = []
+                for file_path in result:
+                    try:
+                        info = self.info(file_path)
+                        detailed_result.append(info)
+                    except Exception:
+                        pass
+                return detailed_result
             return result
         else:
             # Fall back to underlying filesystem if not cached
-            return self.fs.find(path, maxdepth=maxdepth, withdirs=withdirs, **kwargs)
+            result_from_fs = self.fs.find(
+                path, maxdepth=maxdepth, withdirs=withdirs, detail=detail, **kwargs
+            )
+            # Type narrowing for return value
+            if isinstance(result_from_fs, dict):
+                # If it's a dict, we need to handle it - but find() should return list
+                return []
+            return result_from_fs
 
     def ls(
         self, path: str, detail: bool = True, **kwargs: Any
@@ -192,8 +214,9 @@ class CachedRemoteFileSystem(AbstractFileSystem):
         mode: str = "rb",
         block_size: int | None = None,
         cache_options: dict | None = None,
+        compression: str | None = None,
         **kwargs: Any,
-    ) -> AbstractBufferedFile:
+    ) -> Any:
         """
         Open a file.
 
@@ -201,6 +224,7 @@ class CachedRemoteFileSystem(AbstractFileSystem):
         :param mode: Mode to open in
         :param block_size: Block size for reading
         :param cache_options: Cache options
+        :param compression: Compression codec
         :param kwargs: Additional arguments
         :return: File handle
         """
@@ -209,5 +233,6 @@ class CachedRemoteFileSystem(AbstractFileSystem):
             mode=mode,
             block_size=block_size,
             cache_options=cache_options,
+            compression=compression,
             **kwargs,
         )

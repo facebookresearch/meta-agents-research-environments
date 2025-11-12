@@ -385,8 +385,8 @@ def preprocess_scenario_from_config(
         judge_config = None
         if config.judge_engine_config is not None:
             from are.simulation.validation.configs import (
-                create_judge_engine,
                 GraphPerEventJudgeConfig,
+                create_judge_engine,
             )
 
             judge_engine = create_judge_engine(config.judge_engine_config)

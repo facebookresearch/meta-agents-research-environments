@@ -48,6 +48,8 @@ class RemoteFsCache:
         # }
         self._cache: dict[str, dict[str, Any]] = {}
         self._cache_storage = os.path.join(tempfile.gettempdir(), "are_remote_fs_cache")
+        # Create the cache storage directory if it doesn't exist
+        os.makedirs(self._cache_storage, exist_ok=True)
 
     def get_or_create_fs_entry(
         self,
@@ -77,6 +79,12 @@ class RemoteFsCache:
             # Use provided fs/root or resolve from URI
             if fs is None or root is None:
                 fs, root = url_to_fs(remote_uri)
+
+            # Ensure fs and root are not None after resolution
+            if fs is None:
+                raise ValueError(f"Failed to resolve filesystem for URI: {remote_uri}")
+            if root is None:
+                raise ValueError(f"Failed to resolve root path for URI: {remote_uri}")
 
             # Scan the remote filesystem once to get all files
             file_list = set()
@@ -140,10 +148,10 @@ class RemoteFsCache:
             self._cache[remote_uri]["stats"][rel_path] = {"size": size, "mode": mode}
 
     def clear(self) -> None:
-        """Clear all cached data."""
+        """Clear all cached data and cached filesystem instances."""
         with self._lock:
-            # Clear the in-memory cache
-            # Note: WholeFileCacheFileSystem disk cache persists
+            # Clear the in-memory cache, which will also remove references
+            # to any cached filesystem instances
             self._cache.clear()
             logger.info("Cleared remote filesystem cache")
 
@@ -168,9 +176,13 @@ class RemoteFsCache:
 
             # Create a new cached filesystem
             raw_fs = self._cache[remote_uri]["fs"]
+            # Use same_names=True to avoid hash-based naming which can cause race conditions
+            # Also specify check_files=False to avoid unnecessary checks that can cause race conditions
             cached_fs = WholeFileCacheFileSystem(
                 fs=raw_fs,
                 cache_storage=self._cache_storage,
+                same_names=True,
+                check_files=False,
             )
             self._cache[remote_uri]["cached_fs"] = cached_fs
 
