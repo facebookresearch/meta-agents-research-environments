@@ -5,13 +5,15 @@
 # the root directory of this source tree.
 
 
+import time
 from unittest.mock import Mock, patch
 
 import pytest
 
 # Mock the scenarios loading to avoid directory dependency
 with patch(
-    "are.simulation.scenarios.utils.load_utils.load_all_universes", return_value={}
+    "are.simulation.scenarios.utils.load_utils.load_all_universes",
+    return_value={},
 ):
     from are.simulation.gui.server.session_manager import SessionManager
 
@@ -68,6 +70,9 @@ def test_cleanup_inactive_are_simulation():
     mock_are_simulation1 = Mock()
 
     manager.add_are_simulation_instance("test_session", mock_are_simulation1)
+
+    # Wait a small amount to ensure the session becomes inactive
+    time.sleep(0.01)
 
     manager._cleanup_inactive_are_simulation()
 
