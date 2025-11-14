@@ -149,5 +149,4 @@ class HuggingFaceLLMEngine(LLMEngine):
             logger.error(f"{error_msg}. Message: {response.choices[0].message}")
             raise ValueError(error_msg)
 
-        content = content.replace("False", "false").replace("True", "true")
         return content, None
