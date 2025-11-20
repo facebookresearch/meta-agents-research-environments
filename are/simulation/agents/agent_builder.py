@@ -52,7 +52,7 @@ class AgentBuilder(AbstractAgentBuilder):
         self.llm_engine_builder = llm_engine_builder or LLMEngineBuilder()
 
     def list_agents(self) -> list[str]:
-        return ["default"]
+        return ["default", "browser"]
 
     def build(
         self,
@@ -87,6 +87,49 @@ class AgentBuilder(AbstractAgentBuilder):
                         base_agent=are_simulation_react_json_agent(
                             llm_engine=llm_engine,
                             base_agent_config=agent_config.base_agent_config,
+                        ),
+                        time_manager=env.time_manager,
+                        max_turns=agent_config.max_turns,
+                        pause_env=env.pause,
+                        resume_env=env.resume_with_offset,
+                        simulated_generation_time_config=(
+                            agent_config.get_base_agent_config().simulated_generation_time_config
+                        ),
+                    )
+                else:
+                    raise ValueError(
+                        f"Agent {agent_config.get_agent_name()} requires a ARESimulationReactBaseAgentConfig"
+                    )
+
+            case "browser":
+                from are.simulation.agents.default_agent.agent_factory import (
+                    are_simulation_browser_react_agent,
+                )
+                from are.simulation.agents.default_agent.are_simulation_main import (
+                    ARESimulationAgent,
+                )
+
+                assert env is not None, "Environment must be provided"
+                assert env.time_manager is not None, "Time manager must be provided"
+                assert env.append_to_world_logs is not None, (
+                    "Log callback must be provided"
+                )
+
+                llm_engine = self.llm_engine_builder.create_engine(
+                    engine_config=agent_config.get_base_agent_config().llm_engine_config,
+                    mock_responses=mock_responses,
+                )
+
+                if isinstance(agent_config, ARESimulationReactAgentConfig):
+                    # Browser will be injected later from scenario during run_scenario()
+                    # It's passed as None here and set in prepare_are_simulation_run()
+                    return ARESimulationAgent(
+                        log_callback=env.append_to_world_logs,
+                        llm_engine=llm_engine,
+                        base_agent=are_simulation_browser_react_agent(
+                            llm_engine=llm_engine,
+                            base_agent_config=agent_config.base_agent_config,
+                            browser=None,  # Will be set from scenario later
                         ),
                         time_manager=env.time_manager,
                         max_turns=agent_config.max_turns,

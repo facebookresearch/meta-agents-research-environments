@@ -31,6 +31,9 @@ from are.simulation.notification_system import (
     MessageType,
 )
 from are.simulation.scenarios import Scenario
+from are.simulation.scenarios.scenario_gmail_browser.scenario import (
+    GmailBrowserScenario,
+)
 from are.simulation.time_manager import TimeManager
 from are.simulation.tool_utils import AppTool, AppToolAdapter
 from are.simulation.types import SimulatedGenerationTimeConfig
@@ -186,6 +189,17 @@ class ARESimulationAgent(RunnableARESimulationAgent):
         notification_system: BaseNotificationSystem | None = None,
         initial_agent_logs: list[BaseAgentLog] | None = None,
     ):
+        if isinstance(scenario, GmailBrowserScenario):
+            # Inject browser from scenario if available
+            if hasattr(scenario, "browser") and scenario.browser is not None:
+                from are.simulation.agents.custom_agents.browser_agent import (
+                    BrowserAgent,
+                )
+
+                if isinstance(self.react_agent, BrowserAgent):
+                    self.react_agent.browser = scenario.browser
+                    logger.info("Injected browser from scenario into BrowserAgent")
+
         self.init_tools(scenario)
         self.init_notification_system(notification_system)
         self.init_system_prompt(scenario)

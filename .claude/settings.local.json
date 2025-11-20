@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(uvx ruff check:*)",
+      "Bash(uv run python:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "sandbox": {
+    "enabled": false,
+    "autoAllowBashIfSandboxed": false
+  }
+}

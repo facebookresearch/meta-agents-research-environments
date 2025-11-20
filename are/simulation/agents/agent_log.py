@@ -55,6 +55,9 @@ class BaseAgentLog(ABC):
         if log_type is None:
             raise ValueError("Log type is not specified")
 
+        # Lazy import to avoid circular dependency
+        from are.simulation.agents.custom_agents.browser_agent import BrowserStateLog
+
         log_type_map = {
             "system_prompt": SystemPromptLog,
             "task": TaskLog,
@@ -84,6 +87,7 @@ class BaseAgentLog(ABC):
             "environment_notifications": EnvironmentNotificationLog,
             "hint": HintLog,
             "task_reminder": TaskReminderLog,
+            "browser_state": BrowserStateLog,
         }
 
         log_class = log_type_map.get(log_type)

@@ -1,0 +1,1643 @@
+{
+  "user": {
+    "name": "Dr. Matthias H. Bergmann",
+    "email": "matthias.bergmann@brahms-studies.org",
+    "accounts": [
+      {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org",
+        "isDefault": true
+      }
+    ]
+  },
+  "emails": [
+    {
+      "id": "email_ce253dd2",
+      "threadId": "thread_a07c3e92da5f4b20",
+      "from": {
+        "name": "Account Security Team",
+        "email": "verify@paypa1-secure.com"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "URGENT: ACCOUNT VERIFICATION REQUIRED!!! IMMEDIATE ACTION NEEDED!!!!",
+      "body": "Dear Dr. Matthias H. Bergmann,\n\nYour mailbox will be SUSPENDED within 24 HOURS due to a security breach detected on our system. To avoid permanent loss of access you MUST verify your account now. Click the secure link below and follow 2 quick steps to confirm your identity:\n\nhttp://verify-paypa1-secure.com/confirm\n\nFailure to complete verification will result in permanent deactivation and loss of all emails. This is an automated notice — ignoring will cause immediate action.\n\nVerify immediately to avoid disruption.\n\nRegards,\nAccount Security Team\nsupport@paypa1-secure.com\n\nP.S. If you already verified, please ignore this message. (Note: delay may cause suspension)",
+      "snippet": "Dear Dr. Matthias H. Bergmann,  Your mailbox will be SUSPENDED within 24 HOURS due to a security breach detected on our system. To avoid permanent...",
+      "timestamp": "2025-11-05T08:15:00.000Z",
+      "isRead": false,
+      "isStarred": false,
+      "labels": ["SPAM"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "promotions",
+      "isVerifiedSender": false,
+      "reactions": []
+    },
+    {
+      "id": "email_72ff426f",
+      "threadId": "thread_0ebf84939e6c4c0d",
+      "from": {
+        "name": "Harmonia Antiqua Press",
+        "email": "catalog@harmoniaantiqua.com"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "New critical edition: Brahms — Symphony No. 3 (Urtext + Sketches) — 20% for libraries",
+      "body": "Dear Dr. Bergmann,\n\nHarmonia Antiqua Press is pleased to announce our new critical Urtext edition of Johannes Brahms's Symphony No. 3, including newly transcribed sketch material and a comprehensive critical report. To support scholars and university libraries we are offering a 20% institutional discount for preorders this month.\n\nWhat’s inside:\n- Fully collated orchestral score and conductor’s parts\n- High-resolution scans of original sketches\n- Scholarly commentary on variant readings\n\nPreorder now to receive a complimentary PDF excerpt of movement I and free shipping for European addresses. Click here to preview the excerpt and claim the 20% discount: https://harmoniaantiqua.com/brahms-no3\n\nWith regards,\nHarmonia Antiqua Press — Scholarly Editions & Early Music Resources",
+      "snippet": "Dear Dr. Bergmann,  Harmonia Antiqua Press is pleased to announce our new critical Urtext edition of Johannes Brahms's Symphony No. 3, including...",
+      "timestamp": "2025-10-05T09:15:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["INBOX"],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att-001-brahms-no3-excerpt",
+          "filename": "Brahms_Symphony_No3_Sketches_Excerpt.pdf",
+          "mimeType": "application/pdf",
+          "size": 254321.0
+        }
+      ],
+      "isImportant": false,
+      "category": "promotions",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_56692cbc",
+      "threadId": "thread_6c583a500eed40bd",
+      "from": {
+        "name": "Aural Heritage Audio",
+        "email": "offers@auralheritageaudio.com"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Remastered: Brahms Symphonies • 30% off educator bundle — Preview hi-res samples",
+      "body": "Dr. Bergmann,\n\nAural Heritage Audio invites you to explore our newly remastered collection “Brahms: The Late Symphonies — Historic Sessions Restored.” Engineered for critical listening, the release offers 24-bit/96k downloads and annotated session notes.\n\nSpecial offer for academics: 30% off the educator bundle (includes digital booklet and detailed restoration notes). Stream three comparison samples now and use code EDU30 at checkout.\n\nPreview samples and purchase: https://auralheritageaudio.com/brahms-remaster\n\nBest,\nAural Heritage Audio — Restoring the sound of history",
+      "snippet": "Dr. Bergmann,  Aural Heritage Audio invites you to explore our newly remastered collection “Brahms: The Late Symphonies — Historic Sessions...",
+      "timestamp": "2025-11-02T16:30:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["INBOX"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "promotions",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_3eeb70a6",
+      "threadId": "thread_48efb3756b8740cf",
+      "from": {
+        "name": "European Music Tours",
+        "email": "info@euromusictours.com"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Limited seats: ‘Brahms in Vienna’ symposium & concert week — Faculty discount",
+      "body": "Hello Dr. Bergmann,\n\nJoin our curator-led ‘Brahms in Vienna’ week this November: archive visits, rehearsals with the Vienna Symphony chamber ensemble, and a closing concert featuring Symphony No. 3. The program is tailored for scholars and conductors, with exclusive access to manuscript holdings.\n\nFaculty rate: 15% off until seats sell out. Early-bird itinerary includes a guided visit to the Brahms-Haus and a private roundtable with festival musicologists.\n\nReserve your place and view the full itinerary: https://euromusictours.com/brahms-vienna\n\nWarm regards,\nEuropean Music Tours — Curated musicology travel",
+      "snippet": "Hello Dr. Bergmann,  Join our curator-led ‘Brahms in Vienna’ week this November: archive visits, rehearsals with the Vienna Symphony chamber...",
+      "timestamp": "2025-08-20T07:45:00.000Z",
+      "isRead": false,
+      "isStarred": false,
+      "labels": ["INBOX"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "promotions",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_48655404",
+      "threadId": "thread_0662d8fdd99bf174",
+      "from": {
+        "name": "Dr. Anna‑Lena Köhler",
+        "email": "anna-lena.koehler@baerenreiter.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Proposal: Critical Commentary for Bärenreiter Edition — Brahms Symphony No. 3",
+      "body": "Dear Dr. Bergmann,\n\nI hope this message finds you well. I am writing on behalf of Bärenreiter Verlag to propose a collaboration on a new critical commentary to accompany our forthcoming scholarly edition of Johannes Brahms's Symphony No. 3 in F major. Given your published work and long-standing expertise in Brahms studies and the development of the symphonic form, we would be honoured if you would serve as the principal author of the commentary.\n\nOutline of the proposed project:\n- Scope: A full critical commentary addressing sources, variant readings, performance-practice considerations, and a concise historical-context introduction (target length: 40,000–60,000 words).\n- Deliverables: manuscript of commentary (word-processed), critical apparatus referencing extant sources, recommended performance notes, and up to 8 musical examples (engraved or clear scans) where necessary.\n- Timeline: first draft of commentary within 6–8 months of contract signature; final revisions and proofs within 3 months thereafter.\n- Compensation: honorarium and schedule to be discussed; Bärenreiter offers standard scholarly-editorial terms and reimbursement for reasonable research-related expenses.\n\nIf you are interested, I would like to arrange a short meeting (video or phone) to discuss scope, editorial requirements, and a draft contract. Please let me know your availability over the next two weeks and any preliminary questions you may have.\n\nThank you for considering this invitation. I look forward to your response.\n\nWith best regards,\n\nDr. Anna‑Lena Köhler\nSenior Editor, Scholarly Editions\nBärenreiter Verlag\nanna-lena.koehler@baerenreiter.de",
+      "snippet": "Dear Dr. Bergmann,  I hope this message finds you well. I am writing on behalf of Bärenreiter Verlag to propose a collaboration on a new critical...",
+      "timestamp": "2025-06-05T08:30:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": [
+        "INBOX",
+        "Projects/Brahms Symphony No.3",
+        "Clients/Bärenreiter"
+      ],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_fe5f8fce",
+      "threadId": "thread_0662d8fdd99bf174",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Dr. Anna‑Lena Köhler",
+          "email": "anna-lena.koehler@baerenreiter.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Proposal: Critical Commentary for Bärenreiter Edition — Brahms Symphony No. 3",
+      "body": "Dear Dr. Köhler,\n\nThank you for your message and for considering me for this important project. I am very interested in contributing the critical commentary for your Brahms Symphony No. 3 edition. The proposed scope aligns well with my current research, and I welcome the opportunity to treat source criticism, variant readings, and performance-practice issues in a single, integrated commentary.\n\nA few preliminary points and questions:\n1) Concerning sources: I can prepare a full apparatus based on the primary manuscript sources and the first editions. Would Bärenreiter expect inclusion of relevant contemporary reviews and correspondence in the commentary proper, or should contextual materials be limited to a short introduction?\n2) Musical examples: please confirm preferred format (final engraved examples versus high-resolution scans of my own markings) and any engraving standards Bärenreiter requires.\n3) Timeline and obligations: I am available to begin work in July. I would appreciate a draft of the contract and a proposed schedule for interim deliverables.\n\nI am available for a video call the week of 16 June between 10:00 and 15:00 CET, or the following week in the mornings. Please let me know which time suits you and I will confirm.\n\nKind regards,\n\nDr. Matthias H. Bergmann\nProfessor of Musicology\nmatthias.bergmann@brahms-studies.org",
+      "snippet": "Dear Dr. Köhler,  Thank you for your message and for considering me for this important project. I am very interested in contributing the critical...",
+      "timestamp": "2025-06-09T14:20:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": [
+        "SENT",
+        "Projects/Brahms Symphony No.3",
+        "Clients/Bärenreiter",
+        "Action Items"
+      ],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_89636980",
+      "threadId": "thread_0662d8fdd99bf174",
+      "from": {
+        "name": "Dr. Anna‑Lena Köhler",
+        "email": "anna-lena.koehler@baerenreiter.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Draft contract and deliverables — Brahms Symphony No. 3 commentary",
+      "body": "Dear Dr. Bergmann,\n\nThank you for your swift and positive reply. Further to our discussion, please find below the principal points from the proposed contract and the expected deliverables so that we may confirm terms before the draft contract is forwarded for signature.\n\nKey items:\n- Deliverables:\n  • Full critical commentary manuscript (40,000–60,000 words) including critical apparatus and source list.\n  • Up to 8 engraved musical examples (provided either as LilyPond/SMuFL-ready files or engraved by our production team from clear scans).\n  • One short historical introduction (approx. 1,200–1,800 words).\n- Deadlines:\n  • First full draft: 2025-12-01.\n  • Editorial review/revision pass: 2026-02-01.\n  • Final submission and source deliverables: 2026-03-01.\n- Payment:\n  • 30% on contract signature, 40% on acceptance of first draft, 30% on final delivery.\n- Rights and reproduction:\n  • Bärenreiter will hold non-exclusive rights to publish the commentary as part of the edition. The author retains the right to reuse the material in scholarly contexts with acknowledgement. We will include a clause covering permissions for musical examples and any third-party source reproductions.\n- Proofs and revisions:\n  • Two rounds of contractual revisions are included; further rounds will be subject to additional compensation.\n\nPlease confirm whether these terms are acceptable in principle. If so, I will send the full written contract and our editorial style guide. Regarding musical examples: if you can provide engraved files, that expedites production; if not, scans are acceptable and we will arrange engraving at our cost against prior approval.\n\nI am available for a video call on 2025-06-16 at 10:30 CET if that still suits you. Otherwise let me know a preferred time.\n\nWith best regards,\n\nDr. Anna‑Lena Köhler\nSenior Editor, Scholarly Editions\nBärenreiter Verlag\nanna-lena.koehler@baerenreiter.de",
+      "snippet": "Dear Dr. Bergmann,  Thank you for your swift and positive reply. Further to our discussion, please find below the principal points from the proposed...",
+      "timestamp": "2025-07-02T10:00:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": [
+        "INBOX",
+        "Projects/Brahms Symphony No.3",
+        "Clients/Bärenreiter",
+        "Important",
+        "Contracts"
+      ],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att-001",
+          "filename": "Draft_Contract_Brahms_No3.docx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size": 153600.0
+        }
+      ],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_4f803954",
+      "threadId": "thread_0662d8fdd99bf174",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Dr. Anna‑Lena Köhler",
+          "email": "anna-lena.koehler@baerenreiter.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Draft contract and deliverables — Questions and plan for sample submission",
+      "body": "Dear Dr. Köhler,\n\nThank you for the clear outline. The terms are acceptable in principle; a few points for clarification before I sign the formal contract:\n\n1) Rights clause: please add explicit confirmation that I retain copyright for the commentary text itself and grant Bärenreiter a non-exclusive license for the edition. This will ensure I may reuse portions in lectures and future publications with proper acknowledgement.\n2) Musical examples: I will provide engraved files for the key examples (LilyPond source and PDF) where feasible. For complex examples I may submit high-resolution scans; please confirm whether an editorial adjustment by Bärenreiter requires my approval of the engraving proofs.\n3) Proofs schedule: please confirm the expected turnaround time for author review of page proofs (we typically need 10–14 working days).\n\nPlan and immediate next steps:\n- I will prepare and submit a sample commentary chapter (on the second movement, including critical apparatus and two musical examples) by 2025-10-01 for your editorial review.\n- I would appreciate receiving the formal contract and the editorial style guide by 2025-09-30 so I can review the precise wording on rights and revisions.\n\nI am available for the proposed 16 June call but will in fact be travelling; could we instead schedule a meeting on 2025-10-20 (CET) to review the sample and finalize the contract? In the meantime I will prepare the sample and a short bibliography of the sources I will use.\n\nWith kind regards,\n\nDr. Matthias H. Bergmann\nProfessor of Musicology\nmatthias.bergmann@brahms-studies.org",
+      "snippet": "Dear Dr. Köhler,  Thank you for the clear outline. The terms are acceptable in principle; a few points for clarification before I sign the formal...",
+      "timestamp": "2025-09-15T11:45:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": [
+        "SENT",
+        "Projects/Brahms Symphony No.3",
+        "Clients/Bärenreiter",
+        "Action Items",
+        "Contracts"
+      ],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_5957c622",
+      "threadId": "thread_0662d8fdd99bf174",
+      "from": {
+        "name": "Dr. Anna‑Lena Köhler",
+        "email": "anna-lena.koehler@baerenreiter.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "bcc": [],
+      "subject": "Submission received: sample commentary & proposed meeting (20 October)",
+      "body": "Dear Dr. Bergmann,\n\nThank you for your clear points and for the planned sample submission. I confirm receipt of your sample commentary chapter submitted today and our editorial team has begun an initial review.\n\nResponses to your points:\n- Rights clause: we will add explicit language confirming that you retain copyright in the text and that Bärenreiter receives a non-exclusive publishing license for the edition. The formal contract I will send will reflect this.\n- Musical examples and engraving proofs: Bärenreiter will send engraving proofs to you for approval. We will not proceed to final plate without your signed approval; typical turnaround for author review of proofs is 10 working days.\n- Proofs schedule: author review window will be 10–14 working days as you suggested.\n\nNext steps and logistics:\n- Editorial feedback on your sample: you can expect detailed comments by 2025-10-10.\n- Formal contract and editorial style guide: I will send the draft contract and the style guide on 2025-10-03. Please review and return any requested amendments by 2025-10-17 so we may finalise ahead of the meeting.\n- Proposed meeting: 20 October 2025, 14:00–15:00 CET (video conference). We will circulate an agenda and videoconference link with the contract packet on 3 October. Please confirm whether this time suits you.\n\nThank you again for your prompt attention to these matters. We very much value your expertise and look forward to finalising the agreement and beginning work in earnest.\n\nSincerely,\n\nDr. Anna‑Lena Köhler\nSenior Editor, Scholarly Editions\nBärenreiter Verlag\nanna-lena.koehler@baerenreiter.de",
+      "snippet": "Dear Dr. Bergmann,  Thank you for your clear points and for the planned sample submission. I confirm receipt of your sample commentary chapter...",
+      "timestamp": "2025-10-02T09:05:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": [
+        "INBOX",
+        "Projects/Brahms Symphony No.3",
+        "Clients/Bärenreiter",
+        "Meetings"
+      ],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_bf2e1d54",
+      "threadId": "thread_0662d8fdd99bf174",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Dr. Anna‑Lena Köhler",
+          "email": "anna-lena.koehler@baerenreiter.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Confirmation: Meeting 20 October and agreement to contract terms",
+      "body": "Dear Dr. Köhler,\n\nThank you for your confirmation and for the timely editorial feedback on the sample. The proposed meeting on 20 October at 14:00 CET is agreeable; please send the videoconference link and agenda in due course.\n\nI have reviewed the points you outlined and I am comfortable with the contractual language as described (including the non-exclusive license for Bärenreiter and the 10–14 working day proof-review window). I will return any specific comments on the draft contract by 2025-10-17 as requested.\n\nA few practical notes ahead of our meeting:\n- I will bring a short annotated bibliography and notes on source priorities for the commentary.\n- If possible, please provide the editorial house style sheet in advance so I may align citations and editorial conventions with Bärenreiter’s requirements.\n\nI look forward to our discussion on 20 October and to moving forward with the project.\n\nWith best regards,\n\nDr. Matthias H. Bergmann\nProfessor of Musicology\nmatthias.bergmann@brahms-studies.org",
+      "snippet": "Dear Dr. Köhler,  Thank you for your confirmation and for the timely editorial feedback on the sample. The proposed meeting on 20 October at 14:00...",
+      "timestamp": "2025-11-05T07:30:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": [
+        "SENT",
+        "Projects/Brahms Symphony No.3",
+        "Clients/Bärenreiter",
+        "Meetings",
+        "Important"
+      ],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_44ae53fd",
+      "threadId": "thread_c2d6dd568f709410",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Maestro Lukas Hartmann",
+          "email": "lukas.hartmann@gewandhaus-leipzig.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Proposal: Collaboration for Brahms Symphony No. 3 — pre-concert lecture, program notes, and rehearsal consultation",
+      "body": "Dear Maestro Hartmann,\n\nI hope this message finds you well. I write to propose a scholarly collaboration in support of an upcoming Gewandhaus performance of Johannes Brahms's Symphony No. 3. As a specialist in Brahms and the development of the symphonic form, I would be pleased to contribute the following services to enhance the artistic and educational impact of the concerts:\n\n- A pre-concert lecture (c. 40–50 minutes, including 10–15 minutes for questions) to be presented on the afternoon/evening prior to the performance or as scheduled by the orchestra.\n- A concise on-stage preface (10–15 minutes) immediately before the performance to orient audiences to the symphony’s structure and expressive aims.\n- A substantive program note (approx. 1,200–1,800 words) focused on the work’s formal design, thematic rhetoric, and period performance considerations.\n- One rehearsal consultation (up to 90 minutes) in which I can discuss interpretive issues with the conductor and section principals; additional rehearsal presence can be arranged if desired.\n\nPreliminary timeline and deliverables:\n- Draft program note submitted for review by mid-September; final version by mid-October (adjustable to the orchestra’s schedule).\n- Lecture and on-stage preface coordinated with your programming and rehearsal plan.\n\nIf you are interested, I would welcome a brief meeting (in person or by video) to align expectations, confirm exact dates, and discuss a fee structure and the Gewandhaus’s contractual/payment procedures. Please let me know your availability in June or early July for a 30–45 minute call.\n\nThank you for considering this proposal. I look forward to the possibility of supporting the Gewandhaus in presenting Brahms’s Third Symphony.\n\nWith best regards,\n\nDr. Matthias H. Bergmann\nProfessor of Musicology\nmatthias.bergmann@brahms-studies.org",
+      "snippet": "Dear Maestro Hartmann,  I hope this message finds you well. I write to propose a scholarly collaboration in support of an upcoming Gewandhaus...",
+      "timestamp": "2025-06-02T08:15:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": [
+        "SENT",
+        "Projects: Brahms Symphony No.3",
+        "Clients: Gewandhaus",
+        "Important"
+      ],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att1-1",
+          "filename": "Bergmann_Proposal_Brahms_Sym3.pdf",
+          "mimeType": "application/pdf",
+          "size": 124000.0
+        },
+        {
+          "id": "att1-2",
+          "filename": "Bergmann_CV.docx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size": 56000.0
+        }
+      ],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_b6ef3c69",
+      "threadId": "thread_c2d6dd568f709410",
+      "from": {
+        "name": "Maestro Lukas Hartmann",
+        "email": "lukas.hartmann@gewandhaus-leipzig.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [
+        {
+          "name": "Dr. Anna‑Lena Köhler",
+          "email": "anna-lena.koehler@baerenreiter.de"
+        },
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "bcc": [],
+      "subject": "Re: Proposal: Collaboration for Brahms Symphony No. 3 — interest and meeting request",
+      "body": "Dear Dr. Bergmann,\n\nThank you for your thoughtful proposal and for outlining the services you can offer. The Gewandhausorchester is very much interested in collaborating with a specialist of your expertise for our forthcoming performances of Brahms’s Third Symphony. Your suggested combination of lecture, on-stage preface, program note, and rehearsal consultation aligns well with our outreach and artistic goals.\n\nAt present we are planning performances on 2025-10-31 and 2025-11-01 (subject to final confirmation). Relevant rehearsals and a dress rehearsal are currently being scheduled for the week preceding the performance; I can provide concrete dates once they are finalized. For planning purposes, could you confirm:\n\n1) Your fee expectations for the lecture, program note, and rehearsal attendance (and whether you require travel/accommodation to be covered separately).\n2) Whether you are able to attend the principal rehearsal and the dress rehearsal (we will indicate specific dates once they are set).\n3) Your availability for a video call on 2025-06-18 between 10:00 and 12:00 CET to discuss details and contractual matters.\n\nWe also have internal procedures regarding speaker agreements and invoicing; if you could provide a brief statement of your standard terms (advance payment, invoice timeline, etc.), that will expedite our administrative review.\n\nI look forward to our conversation and to confirming arrangements.\n\nWith kind regards,\n\nMaestro Lukas Hartmann\nPrincipal Conductor\nGewandhausorchester Leipzig\nlukas.hartmann@gewandhaus-leipzig.de",
+      "snippet": "Dear Dr. Bergmann,  Thank you for your thoughtful proposal and for outlining the services you can offer. The Gewandhausorchester is very much...",
+      "timestamp": "2025-06-10T14:30:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": [
+        "INBOX",
+        "Projects: Brahms Symphony No.3",
+        "Clients: Gewandhaus",
+        "Action Items"
+      ],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att2-1",
+          "filename": "Gewandhaus_Tentative_Dates.xlsx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size": 20480.0
+        }
+      ],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_0130b19a",
+      "threadId": "thread_c2d6dd568f709410",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Maestro Lukas Hartmann",
+          "email": "lukas.hartmann@gewandhaus-leipzig.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Proposal: Collaboration for Brahms Symphony No. 3 — fees, terms, and availability for 18 June",
+      "body": "Dear Maestro Hartmann,\n\nThank you for your prompt reply and for the tentative performance dates. I can confirm my availability for a video call on 2025-06-18 between 10:00 and 12:00 CET; 10:30–11:15 would be convenient for me if that suits your schedule.\n\nBelow are my preliminary fee proposals and terms; I am, of course, open to adjustment to meet institutional norms.\n\nServices and proposed fees (EUR):\n- Pre-concert lecture (40–50 minutes, incl. Q&A): 1,500 EUR\n- On-stage preface (10–15 minutes): 400 EUR\n- Program note (1,200–1,800 words), including one round of revisions: 600 EUR\n- Rehearsal consultation (up to 90 minutes in person): 600 EUR\n\nTravel and accommodation: reimbursed at cost (I can provide receipts) or arranged by the orchestra.\n\nPayment terms:\n- 50% of the agreed fee upon signing of the engagement agreement or upon invoice after confirmation of services; remaining 50% within 30 days of final delivery/performance.\n- I can provide an invoice compatible with standard institutional procedures; please indicate any specific billing instructions required by the Gewandhaus.\n\nProposed schedule for deliverables:\n- Draft program note: by 2025-09-15 (or earlier if you prefer a September 1 deadline).\n- Final program note: by 2025-10-15.\n- Attendance at principal rehearsal and/or dress rehearsal: to be confirmed when rehearsal dates are set.\n\nDiscussion points for our call on 2025-06-18:\n- Final performance and rehearsal dates\n- Preferred emphasis of the lecture and program note (e.g., formal analysis, performance practice, historical reception)\n- Logistical arrangements (travel, accommodation, technical needs for lecture)\n- Contractual/invoicing particulars and any institutional rates to which you adhere\n\nPlease confirm whether 10:30 CET on 18 June is agreeable and whether you would prefer Zoom or MS Teams. I will prepare a brief outline for the lecture and an example program-note excerpt to share in advance of the meeting.\n\nWith best regards,\n\nDr. Matthias H. Bergmann\nmatthias.bergmann@brahms-studies.org",
+      "snippet": "Dear Maestro Hartmann,  Thank you for your prompt reply and for the tentative performance dates. I can confirm my availability for a video call on...",
+      "timestamp": "2025-06-11T09:05:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Projects: Brahms Symphony No.3", "Action Items"],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att3-1",
+          "filename": "Fee_Schedule_Bergmann.xlsx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size": 12000.0
+        },
+        {
+          "id": "att3-2",
+          "filename": "Video_Call_Agenda.pptx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          "size": 45000.0
+        }
+      ],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_0b33c7f9",
+      "threadId": "thread_c2d6dd568f709410",
+      "from": {
+        "name": "Maestro Lukas Hartmann",
+        "email": "lukas.hartmann@gewandhaus-leipzig.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [
+        {
+          "name": "Dr. Anna‑Lena Köhler",
+          "email": "anna-lena.koehler@baerenreiter.de"
+        },
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "bcc": [],
+      "subject": "Confirmation following our call — agreement on services and next steps",
+      "body": "Dear Dr. Bergmann,\n\nThank you for meeting this morning; it was a productive conversation. As discussed, we are pleased to confirm the Gewandhaus’s engagement of your services in connection with our performances of Brahms’s Symphony No. 3 on 2025-10-31 and 2025-11-01.\n\nAgreed items (summary):\n- Pre-concert lecture: 40 minutes presentation + 15 minutes Q&A; fee 1,500 EUR.\n- On-stage preface prior to performance: up to 12 minutes; fee 400 EUR.\n- Program note: 1,200–1,600 words; fee 600 EUR. You will submit a draft by 2025-09-01 and a final version by 2025-10-15.\n- Rehearsal consultation: attendance at the principal rehearsal (scheduled provisionally for 2025-10-27, time TBA) and the dress rehearsal on 2025-10-30 if possible; fee 600 EUR for up to 90 minutes per rehearsal. Please indicate which rehearsal(s) you plan to attend so that I may reserve seating.\n- Travel and accommodation to be booked by the Gewandhaus where possible; otherwise reimbursed upon receipt. We will provide hotel details and preferred arrival/departure windows.\n\nAdministrative matters:\n- We will proceed with a standard engagement agreement. Our finance office operates on net-30 payment terms following invoice receipt. Please send an invoice for the agreed 50% deposit once the contract is returned; the final invoice may be submitted after the final delivery or performance.\n- Could you please send a short biographical blurb (approx. 80–100 words) and a photographic headshot for our program and press use by 2025-07-15?\n\nNext steps on our side:\n- I will forward the formal engagement contract and the provisional rehearsal schedule by the end of next week.\n- Once rehearsal times are fixed, I will confirm which rehearsal(s) we request you to attend.\n\nWe are looking forward to working with you and to presenting an interpretively informed performance of this cornerstone of Brahms’s symphonic output.\n\nWith appreciation,\n\nMaestro Lukas Hartmann\nlukas.hartmann@gewandhaus-leipzig.de\nGewandhausorchester Leipzig",
+      "snippet": "Dear Dr. Bergmann,  Thank you for meeting this morning; it was a productive conversation. As discussed, we are pleased to confirm the Gewandhaus’s...",
+      "timestamp": "2025-06-18T15:20:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": [
+        "INBOX",
+        "Projects: Brahms Symphony No.3",
+        "Clients: Gewandhaus",
+        "Important",
+        "Action Items"
+      ],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att4-1",
+          "filename": "Engagement_Letter_Gewandhaus_Bergmann.pdf",
+          "mimeType": "application/pdf",
+          "size": 78000.0
+        },
+        {
+          "id": "att4-2",
+          "filename": "Engagement_Terms.docx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size": 45000.0
+        }
+      ],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_16d551e7",
+      "threadId": "thread_605be48dc376cdde",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Dr. Sofía Márquez",
+          "email": "sofia.marquez@eman-archives.eu"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Proposal: Collaborative Digital Edition & Linked Data for Brahms Symphony No. 3",
+      "body": "Dear Dr. Márquez,\n\nI hope this message finds you well. I am writing to propose a collaborative project between the Brahms Studies Centre and the European Music Archives Network to produce a scholarly digital edition and linked-data resource focused on Johannes Brahms's Symphony No. 3. The aim is to combine source images, diplomatic/critical TEI transcriptions, annotation layers (harmonic, motivic, and reception history), and interoperable metadata (IIIF manifests + EDM/EDM-Lite or Music-specific profiles) to support both musicological research and public access.\n\nProposed high-level deliverables:\n- High-resolution IIIF image manifests for principal manuscript sources and early editions.\n- TEI-encoded transcriptions with editorial apparatus and normative critical commentary.\n- RDF/JSON-LD linked-data exposing relations between sources, performances, and commentary (aligned to existing EMAN profiles where possible).\n- A small demonstrator web client that layers annotations and linked-data queries for exploratory research.\n- Documentation and a machine-readable metadata profile suitable for reuse across EMAN partners.\n\nPreliminary timeline (subject to discussion): 12 months, divided into discovery (2 months), digitisation & encoding (6 months), integration & demonstrator (3 months), dissemination & documentation (1 month). Estimated core-team roles: PI/musicology (me), digital scholarship lead (EMAN), TEI editor(s), developer(s), and rights/metadata officer.\n\nI would welcome EMAN's perspective on scope, metadata profile alignment, and technical workflows. If this appears of mutual interest, may we schedule a 60-minute meeting to discuss scope, resources, and potential funding avenues (e.g., Horizon Europe, private foundations)? I am available the week of 16 June and can circulate a brief draft work plan prior to the meeting.\n\nThank you for considering this proposal. I look forward to the possibility of collaborating with EMAN.\n\nKind regards,\n\nDr. Matthias H. Bergmann\nProfessor of Musicology | Brahms Studies Centre\nmatthias.bergmann@brahms-studies.org",
+      "snippet": "Dear Dr. Márquez,  I hope this message finds you well. I am writing to propose a collaborative project between the Brahms Studies Centre and the...",
+      "timestamp": "2025-06-02T09:12:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["SENT", "Projects", "Important"],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att-001",
+          "filename": "Brahms_Symphony3_Proposal.pdf",
+          "mimeType": "application/pdf",
+          "size": 245678.0
+        }
+      ],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_176c92d7",
+      "threadId": "thread_605be48dc376cdde",
+      "from": {
+        "name": "Dr. Sofía Márquez",
+        "email": "sofia.marquez@eman-archives.eu"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Proposal: Collaborative Digital Edition & Linked Data for Brahms Symphony No. 3",
+      "body": "Dear Dr. Bergmann,\n\nMany thanks for your clear and well-considered proposal. EMAN is very interested in the concept of a focused demonstrator combining IIIF, TEI and linked data for a canonical work such as Brahms's Symphony No. 3. A lightweight, well-documented pilot would be valuable both for scholarly reuse and for demonstrating EMAN interoperability best practice.\n\nBefore we schedule a meeting, could you please clarify a few points so we can invite the appropriate technical colleagues:\n\n1) Which specific sources (manuscripts, sketches, early prints) do you envisage including in the pilot, and are images already available or will new digitisation be required?\n2) Do you have a preferred metadata/profile standard in mind (e.g., EDM, EAD, Music Ontology, or an EMAN-curated profile) and any constraints re: vocabularies for persons/works?\n3) What licensing model do you anticipate for images and encoded materials (open licence, embargoed access, restricted use)?\n4) Do you foresee an expectation of long-term hosting by EMAN or a distributed model where partners host their own resources?\n\nI can offer the following tentative meeting slots (CEST) to begin: 18 June 10:00–11:00, 19 June 14:00–15:00, or 20 June 09:30–10:30. Please let me know which suits you and provide any additional participants you would like invited.\n\nIf you can provide brief answers to the questions above, we will include our Head of Technical Interoperability and a metadata specialist in the meeting.\n\nWith best regards,\n\nDr. Sofía Márquez\nHead of Digital Scholarship & Interoperability | European Music Archives Network (EMAN)\nsofia.marquez@eman-archives.eu",
+      "snippet": "Dear Dr. Bergmann,  Many thanks for your clear and well-considered proposal. EMAN is very interested in the concept of a focused demonstrator...",
+      "timestamp": "2025-06-04T14:45:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["INBOX", "Projects", "Important"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_28dbf8b0",
+      "threadId": "thread_605be48dc376cdde",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Dr. Sofía Márquez",
+          "email": "sofia.marquez@eman-archives.eu"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Proposal: Collaborative Digital Edition & Linked Data for Brahms Symphony No. 3 — Clarifications & Availability",
+      "body": "Dear Dr. Márquez,\n\nThank you for your prompt and helpful reply. Please find brief answers to your questions below:\n\n1) Sources: My immediate proposal is to include the principal autograph score of Symphony No. 3 (Hamburg Staats- und Universitätsbibliothek, manuscript A), the surviving sketchbook pages held in the Brahms Archive, and the first edition plates. High-resolution images for the Hamburg manuscript are available but would require formal permission for reuse; some sketch images will require digitisation. I can provide a prioritized source list ahead of the meeting.\n\n2) Metadata/profile: I suggest aligning with EMAN's existing profiles where possible. For the pilot, TEI for encoding and IIIF for image delivery are preferred. For the bibliographic/archival layer, EDM with extensions for musical works (or a lightweight crosswalk to Music Ontology) would be suitable. I am open to EMAN recommendations about controlled vocabularies for persons, places, and work identifiers (VIAF, ISNI, RIdE/Work IDs if available).\n\n3) Licensing: My preference is to make transcriptions and RDF under a permissive scholarly licence (CC BY). Image licences will depend on source institutions; for demonstrator purposes we should aim for open access where possible, with clearly stated rights metadata for restricted items. I will begin rights-clearance enquiries immediately.\n\n4) Hosting: For sustainability, I propose a hybrid approach: EMAN can host the demonstrator and the integrated RDF index for discovery, while partner institutions retain canonical IIIF manifests on their platforms. We should formalise an API/harvest workflow for synchronization.\n\nRegarding meeting slots, 19 June 14:00–15:00 CEST works well for me. Please include any technical and metadata specialists you think relevant. I will circulate a one-page draft work plan and a sample TEI/IIIF snippet by 17 June so participants can prepare.\n\nI look forward to our discussion.\n\nBest regards,\n\nDr. Matthias H. Bergmann\nmatthias.bergmann@brahms-studies.org",
+      "snippet": "Dear Dr. Márquez,  Thank you for your prompt and helpful reply. Please find brief answers to your questions below:  1) Sources: My immediate proposal...",
+      "timestamp": "2025-06-06T08:30:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Projects", "Action Items"],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att-002",
+          "filename": "Source_List_and_Facsimiles.xlsx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size": 46230.0
+        }
+      ],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_b2d05dd7",
+      "threadId": "thread_605be48dc376cdde",
+      "from": {
+        "name": "Dr. Sofía Márquez",
+        "email": "sofia.marquez@eman-archives.eu"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Meeting Confirmation and Proposed Agenda — 19 June 14:00 CEST",
+      "body": "Dear Dr. Bergmann,\n\nThank you for the clear answers and for offering to circulate preparatory material.\n\nWe confirm the meeting for 19 June, 14:00–15:00 CEST. Participants from EMAN will include myself, our Head of Technical Interoperability (Alexandre Dubois), and our metadata specialist (Clara Rossi). Please send the one-page work plan and the TEI/IIIF snippet by 17 June as you indicated.\n\nProposed agenda (60 minutes):\n- 5' — Introductions and objectives\n- 10' — Overview of proposed sources and rights status (Dr. Bergmann)\n- 15' — Technical interoperability and metadata profile options (EMAN)\n- 15' — Demonstrator scope: UI/UX, annotation layers, and linked-data model\n- 10' — Next steps: timeline, responsibilities, and potential funding routes\n\nA few preparatory requests:\n- If possible, include a short list (2–4) of priority sources with current rights status in your one-page plan.\n- Please propose any preferred identifiers for persons/works (VIAF/ISNI/work identifiers).\n\nI will circulate a calendar invitation with a video-conference link and a short participant list. If you would like any additional attendees from your side (e.g., a TEI editor or developer), please let me know and I will add them to the invite.\n\nLooking forward to the meeting.\n\nKind regards,\n\nDr. Sofía Márquez\nsofia.marquez@eman-archives.eu\nHead of Digital Scholarship & Interoperability | EMAN",
+      "snippet": "Dear Dr. Bergmann,  Thank you for the clear answers and for offering to circulate preparatory material.  We confirm the meeting for 19 June,...",
+      "timestamp": "2025-06-09T10:00:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["INBOX", "Projects", "Important", "Action Items"],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att-003",
+          "filename": "Proposed_Agenda_19_June.pdf",
+          "mimeType": "application/pdf",
+          "size": 98765.0
+        }
+      ],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_72ad906c",
+      "threadId": "thread_605be48dc376cdde",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Dr. Sofía Márquez",
+          "email": "sofia.marquez@eman-archives.eu"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Meeting Confirmation and Proposed Agenda — 19 June 14:00 CEST / Action Items",
+      "body": "Dear Dr. Márquez,\n\nMany thanks for confirming and for the proposed agenda. I will invite our TEI editor (Dr. Lena Fischer) and our archive's rights officer (Markus Heller) to join the meeting. I will also circulate the one-page work plan, a short prioritized source list with current rights notes, and a TEI/IIIF snippet by close of day on 17 June.\n\nPreliminary action items from my side:\n- Deliver by 2025-06-17: one-page work plan; prioritized source list with current rights status; TEI-encoded example (sample passage) and IIIF manifest reference.\n- Prepare brief note on potential funding calls and budget outline to discuss at the meeting.\n\nOn licensing, to be explicit: I propose transcriptions and RDF be released under CC BY 4.0. Image licensing will be negotiated with holding institutions; where open licences cannot be obtained for the pilot, we will include derivative TEI and metadata under CC BY while using low-resolution preview images for the demonstrator and noting rights restrictions in the manifest.\n\nIf this approach is acceptable to EMAN, I will include it in the materials to circulate. Please advise if EMAN has any constraints regarding demonstrator images or preferred rights statements for metadata in the pilot.\n\nI look forward to speaking on 19 June at 14:00 CEST.\n\nWith best regards,\n\nDr. Matthias H. Bergmann\nmatthias.bergmann@brahms-studies.org",
+      "snippet": "Dear Dr. Márquez,  Many thanks for confirming and for the proposed agenda. I will invite our TEI editor (Dr. Lena Fischer) and our archive's rights...",
+      "timestamp": "2025-06-10T16:20:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["SENT", "Projects", "Action Items", "Important"],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att-004",
+          "filename": "Meeting_Action_Items.docx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size": 55321.0
+        }
+      ],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_a6e19a97",
+      "threadId": "thread_5ef51e7755facbab",
+      "from": {
+        "name": "Anna-Lena Köhler",
+        "email": "anna.lena.koehler@gmx.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Lange nicht gesprochen — dieses Wochenende?",
+      "body": "Lieber Matthias,\n\nach, wie lange haben wir nicht mehr richtig geplaudert! Ich hoffe, bei dir läuft die Sommerlehre gut und die Forschung macht Fortschritte (und die Kaffeemaschine im Büro funktioniert wieder).\n\nIch wollte fragen, ob du dieses Wochenende Zeit für einen Kaffee hast? Samstagvormittag wäre bei mir schwierig, aber Sonntag gegen 11:00 im Café neben der Markthalle würde passen. Ich habe ein paar Samen erfolgreich vorgezogen und würde dir gern von meinem kleinen Gartenchaos erzählen – und ich bräuchte definitiv deinen musikalischen Rat: welche Brahms-Aufnahme passt am besten zum Frühsommer? 😊\n\nWenn Sonntag nicht geht, sag einfach, wann es dir passt. Würde mich freuen, dich zu sehen und ein bisschen aufzuholen.\n\nLiebe Grüße\nAnna-Lena",
+      "snippet": "Lieber Matthias,  ach, wie lange haben wir nicht mehr richtig geplaudert! Ich hoffe, bei dir läuft die Sommerlehre gut und die Forschung macht...",
+      "timestamp": "2025-06-09T08:15:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["INBOX", "Friends", "Meetup"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "social",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "❤️",
+          "users": ["Matthias"]
+        }
+      ]
+    },
+    {
+      "id": "email_a48dc38e",
+      "threadId": "thread_5ef51e7755facbab",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Anna-Lena Köhler",
+          "email": "anna.lena.koehler@gmx.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Lange nicht gesprochen — dieses Wochenende?",
+      "body": "Liebe Anna-Lena,\n\nwie schön, von dir zu hören! Danke, die Lehre hält mich momentan wirklich auf Trab, aber zum Glück ist das Büroklavier noch intakt und die Kaffeemaschine hat gestern tatsächlich nicht gestreikt. Deine Gartenmeldung klingt wunderbar — du musst mir unbedingt Fotos schicken.\n\nSonntag um 11:00 im Café an der Markthalle passt mir bestens. Ich bringe ein paar Notenblätter mit (ich habe gerade ein interessantes Fragment von Brahms entdeckt, das ich dir zeigen möchte) und eine Aufnahme, die mir für den Frühsommer sehr warm und leicht vorkommt — vielleicht die Klaviertrios, Aufnahme von 1998, weißt du die? \n\nÜbrigens: nächsten Monat halte ich einen kleinen Vortrag über Brahms' Salonstücke; wenn du magst, lade ich dich ein. Kein offizieller Eintritt, einfach ein Freundinnen- und Freundetreffen danach.\n\nBis Sonntag dann — freue mich!\n\nHerzliche Grüße\nMatthias",
+      "snippet": "Liebe Anna-Lena,  wie schön, von dir zu hören! Danke, die Lehre hält mich momentan wirklich auf Trab, aber zum Glück ist das Büroklavier noch intakt...",
+      "timestamp": "2025-06-09T11:40:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Friends", "Meetup"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "social",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_faf560ac",
+      "threadId": "thread_5ef51e7755facbab",
+      "from": {
+        "name": "Anna-Lena Köhler",
+        "email": "anna.lena.koehler@gmx.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Lange nicht gesprochen — dieses Wochenende?",
+      "body": "Matthias,\n\nperfekt, dann ist Sonntag fix! Ich freue mich sehr auf die Noten und die Aufnahme — immer spannend, was du findest. Fotos vom Garten schicke ich schon vorher, damit du beim Kaffee über meine Tomaten schmunzeln kannst (Spoiler: sie wachsen sehr für sich alleine).\n\nZum Vortrag: das klingt toll, sag mir gern Datum und Uhrzeit, dann bringe ich Kekse mit (alte Familientradition, die Forschungspause leckerer macht). Wenn du noch etwas brauchst, meld dich.\n\nAch, und falls du Samstag doch einen Spaziergang willst: ich gehe morgens eine kleine Runde im Park, 9:30, da wäre Platz für eine gemütliche Strecke. Kein Stress, Hauptsache Sonntag!\n\nBis bald\nAnna-Lena",
+      "snippet": "Matthias,  perfekt, dann ist Sonntag fix! Ich freue mich sehr auf die Noten und die Aufnahme — immer spannend, was du findest. Fotos vom Garten...",
+      "timestamp": "2025-06-09T13:05:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["INBOX", "Friends", "Music", "Meetup"],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att-1",
+          "filename": "Noten.pdf",
+          "mimeType": "application/pdf",
+          "size": 234512.0
+        },
+        {
+          "id": "att-2",
+          "filename": "Garten.jpg",
+          "mimeType": "image/jpeg",
+          "size": 489231.0
+        }
+      ],
+      "isImportant": true,
+      "category": "social",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "👍",
+          "users": ["Matthias"]
+        }
+      ]
+    },
+    {
+      "id": "email_5fc7c3ca",
+      "threadId": "thread_5ef51e7755facbab",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Anna-Lena Köhler",
+          "email": "anna.lena.koehler@gmx.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Lange nicht gesprochen — dieses Wochenende?",
+      "body": "Liebe Anna-Lena,\n\n9:30 Samstag im Park klingt verlockend — ich komme gern dazu, wenn mein Zug am Morgen pünktlich ist (ich gebe dir spätestens Freitag Bescheid). Und die Kekse fürs Vortragspublikum nehme ich schon mal dankbar an! Schreib mir einfach das Datum für den Vortrag, dann notiere ich es.\n\nIch bringe am Sonntag die Aufnahme und ein kleines Heft mit Notizen mit. Freue mich besonders darauf, deine Tomatenkatastrophen live zu begutachten 😉. Schön, dass wir das hinbekommen.\n\nBis bald und eine gute Woche!\n\nHerzliche Grüße\nMatthias",
+      "snippet": "Liebe Anna-Lena,  9:30 Samstag im Park klingt verlockend — ich komme gern dazu, wenn mein Zug am Morgen pünktlich ist (ich gebe dir spätestens...",
+      "timestamp": "2025-06-10T07:20:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Friends", "Meetup"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "social",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_e18a1eb0",
+      "threadId": "thread_5facb18ad1cf72e1",
+      "from": {
+        "name": "Richard Samuel Osei",
+        "email": "richard.osei@gmail.com"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Long time — catch up and a concert?",
+      "body": "Hi Matthias,\n\nIt's been a while — hope you're well. I was thinking of you because I finally moved into a new flat in Kreuzberg (still unpacking boxes), and it reminded me of that brilliant debate we had about Brahms last year. How's life at the institute? Any new projects keeping you busy?\n\nI'm in town this weekend and would love to catch up if you're free. No big agenda, just a coffee and a walk, or maybe a quick beer afterwards. If you're doing something on Saturday evening though, tell me — I might be able to shift plans. Also curious whether you've been to any concerts recently; I've been trying to get back into live music more often.\n\nLet me know what works for you. If weekend doesn't fit, we can aim for next week.\n\nCheers,\nRichard",
+      "snippet": "Hi Matthias,  It's been a while — hope you're well. I was thinking of you because I finally moved into a new flat in Kreuzberg (still unpacking...",
+      "timestamp": "2025-06-02T09:15:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["INBOX", "Friends"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_5cd98bb6",
+      "threadId": "thread_5facb18ad1cf72e1",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Richard Samuel Osei",
+          "email": "richard.osei@gmail.com"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Long time — catch up and a concert?",
+      "body": "Dear Richard,\n\nSo good to hear from you — and congratulations on the new flat! Kreuzberg is a lovely area for walks and coffee (and much better unpacking morale than my office, I suspect).\n\nI'm in Leipzig this week for a small symposium on chamber music and editions of late Brahms songs, so it's been full-on, but I should be back by Friday evening. Saturday would actually be perfect: there's a small chamber concert at the Mendelssohn-Haus that I was intending to attend — a program of early Brahms and Schumann. If you like, come along and we can meet beforehand for coffee. I'll book two tickets; the venue is intimate, so seats are limited.\n\nAs for work, the symposium sparked a useful line on alternative readings in the piano parts — nothing publishable yet but promising. Outside of that, I've taken to walking the old city parks at dusk; helps to reset.\n\nBring any unpacking war stories and tell me about the new neighbourhood. What have you been up to besides moving? New job or projects?\n\nBest,\nMatthias",
+      "snippet": "Dear Richard,  So good to hear from you — and congratulations on the new flat! Kreuzberg is a lovely area for walks and coffee (and much better...",
+      "timestamp": "2025-06-02T14:20:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Friends"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_8af52e4d",
+      "threadId": "thread_5facb18ad1cf72e1",
+      "from": {
+        "name": "Richard Samuel Osei",
+        "email": "richard.osei@gmail.com"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Re: Long time — catch up and a concert?",
+      "body": "Matthias,\n\nThat sounds perfect — I'd love to join you for the concert. Please go ahead and book the tickets if you can. Saturday coffee and then the concert works well for me.\n\nQuick heads-up: I might bring a colleague, Max, who lives nearby and has been keen to hear more chamber music. He's friendly and quiet in concert settings, but I wanted to check if that'd be OK. If the venue is really tiny and you prefer just the two of us, no problem — I can come solo.\n\nSince unpacking is still ongoing, I've been spending evenings fixing shelves and trying not to buy another plant (no promises). Also picked up cycling again — it's been great for clearing the mind and avoiding U-Bahn crowds.\n\nWhat time shall we meet, and where? And any dress code? I assume something smart-casual is fine.\n\nThanks for arranging the tickets — excited to catch up properly.\n\nCheers,\nRichard",
+      "snippet": "Matthias,  That sounds perfect — I'd love to join you for the concert. Please go ahead and book the tickets if you can. Saturday coffee and then the...",
+      "timestamp": "2025-06-05T18:05:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["INBOX", "Friends"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "👍",
+          "users": ["Matthias"]
+        }
+      ]
+    },
+    {
+      "id": "email_4a9215e3",
+      "threadId": "thread_5facb18ad1cf72e1",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Richard Samuel Osei",
+          "email": "richard.osei@gmail.com"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Re: Re: Long time — catch up and a concert?",
+      "body": "Hi Richard,\n\nPerfect — I've reserved two tickets in the central row and added Max as a third; the box office could still accommodate him, so no problem at all. Let's meet at Café Zimmermann (just across from the Mendelssohn-Haus) at 18:00 on Saturday. We can have a quick espresso and a stroll in the garden before the concert, which starts at 19:30.\n\nSmart-casual is absolutely fine; nothing formal required. I'll pick up the tickets and bring them along. If anything changes with your plans or Max can't make it, just drop me a message.\n\nLooking forward to hearing about the new flat and your cycling adventures. Safe unpacking — and bring an extra shelf screw if you need one; I always have a pocketful after library installs.\n\nSee you Saturday,\nMatthias",
+      "snippet": "Hi Richard,  Perfect — I've reserved two tickets in the central row and added Max as a third; the box office could still accommodate him, so no...",
+      "timestamp": "2025-06-06T08:30:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Friends"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "🎉",
+          "users": ["Richard"]
+        }
+      ]
+    },
+    {
+      "id": "email_9c3f870c",
+      "threadId": "thread_745e47e81ba7750c",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Long time — catching up and a small idea for Leipzig",
+      "body": "Hi Elena,\n\nI hope you're well — it's been a while since the conference in 2023. I'm finishing a small book on Brahms's chamber works and I'm back in Leipzig for a few weeks of archival work. My partner and I moved to a slightly larger flat, which finally allows for a piano again — small victories.\n\nAre you around next weekend for a coffee? I'd love to hear what you're working on these days and, if you have a little time, show you a couple of draft pages. If weekends aren't good, I'm flexible for an afternoon at the department instead.\n\nBest,\nMatthias",
+      "snippet": "Hi Elena,  I hope you're well — it's been a while since the conference in 2023. I'm finishing a small book on Brahms's chamber works and I'm back in...",
+      "timestamp": "2025-09-10T08:30:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Colleague"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "🎉",
+          "users": ["Elena"]
+        }
+      ]
+    },
+    {
+      "id": "email_497f9887",
+      "threadId": "thread_745e47e81ba7750c",
+      "from": {
+        "name": "Elena Martínez",
+        "email": "elena.martinez@uni-leipzig.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Long time — catching up and a small idea for Leipzig",
+      "body": "Dear Matthias,\n\nThank you for your message and congratulations on the book — that sounds wonderful. I'm teaching this term and marking is keeping me busy, so next weekend won't work for me. A short mid-week coffee after 17:00 would be easier, or there is usually a departmental coffee hour on Friday morning if that suits.\n\nBest wishes,\nElena",
+      "snippet": "Dear Matthias,  Thank you for your message and congratulations on the book — that sounds wonderful. I'm teaching this term and marking is keeping me...",
+      "timestamp": "2025-09-11T12:45:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["INBOX", "Colleague"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_661c4546",
+      "threadId": "thread_745e47e81ba7750c",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Long time — catching up and a small idea for Leipzig",
+      "body": "Hi Elena,\n\nThanks for the quick reply. How about Thursday at 18:00 at Café Riquet near Augustusplatz? If you'd prefer the departmental setting, I can come by the musicology common room on Friday morning around 10:00. Either option works for me.\n\nIf neither fits, no worries — I can send a couple of pages by email and we can arrange something for when you're less busy.\n\nCheers,\nMatthias",
+      "snippet": "Hi Elena,  Thanks for the quick reply. How about Thursday at 18:00 at Café Riquet near Augustusplatz? If you'd prefer the departmental setting, I can...",
+      "timestamp": "2025-09-12T07:10:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Colleague"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "social",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "👍",
+          "users": ["Elena"]
+        }
+      ]
+    },
+    {
+      "id": "email_45a8b9b6",
+      "threadId": "thread_745e47e81ba7750c",
+      "from": {
+        "name": "Elena Martínez",
+        "email": "elena.martinez@uni-leipzig.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Long time — catching up and a small idea for Leipzig",
+      "body": "Matthias,\n\nThursday at 18:00 at Café Riquet works for me — let's meet there. If anything changes I'll let you know. Good luck with the archives in the meantime.\n\nElena",
+      "snippet": "Matthias,  Thursday at 18:00 at Café Riquet works for me — let's meet there. If anything changes I'll let you know. Good luck with the archives in...",
+      "timestamp": "2025-09-15T15:20:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["INBOX", "Colleague"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": false,
+      "category": "social",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_9fddbd90",
+      "threadId": "thread_5da8121448d87e91",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Dr. Anna-Lena Kuehn",
+          "email": "anna-lena.kuehn@uni-leipzig.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Meeting to discuss Brahms Symphony No. 3 critical edition — schedule and pre-meeting materials",
+      "body": "Dear Anna-Lena,\n\nI hope you are well. I'd like to schedule a short meeting next week to review progress on the critical edition of Brahms's Symphony No. 3 and to agree on priorities for the commentary and variant apparatus. In particular I would like us to focus on the orchestration variants in the second movement and the suggested readings for the closing measures of the third movement.\n\nWould you be available on either Wednesday 2025-10-01 between 14:00–15:30 CET or Thursday 2025-10-02 between 09:00–10:00 CET? If neither works please propose two alternative slots.\n\nCould you also prepare a brief one-page summary of the variant readings you consider most significant (sources collated, recommended reading, and any unresolved issues) for movements II and III and upload it to the shared drive before the meeting? We have an internal deadline for the commentary draft on 2025-10-15 because we plan to circulate material to the publisher by the end of October.\n\nFinally: I have a high-resolution scan of the autograph horn/strings passages that might be relevant — I can bring that to the meeting or upload it if you'd prefer.\n\nBest regards,\n\nDr. Matthias H. Bergmann\nInstitute for Musicology — Symphonic Studies & Critical Editions Unit\nmatthias.bergmann@brahms-studies.org",
+      "snippet": "Dear Anna-Lena,  I hope you are well. I'd like to schedule a short meeting next week to review progress on the critical edition of Brahms's Symphony...",
+      "timestamp": "2025-09-29T08:45:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Projects", "Team", "Action Items"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_f9a2a20e",
+      "threadId": "thread_5da8121448d87e91",
+      "from": {
+        "name": "Dr. Anna-Lena Kuehn",
+        "email": "anna-lena.kuehn@uni-leipzig.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Meeting to discuss Brahms Symphony No. 3 critical edition — schedule and pre-meeting materials",
+      "body": "Dear Matthias,\n\nThank you — I'm available on Wednesday 2025-10-01 at 14:00 CET, that works well for me.\n\nI will prepare the one-page summary of the most significant variants for movements II and III and upload it to the unit's shared folder by Tuesday evening. Current status in brief:\n- Collation: Complete for sources A (autograph), B (first print), and C (early copyist score).\n- Outstanding: microfilm of source D at the Staatsbibliothek arrives next week; I will integrate any relevant discrepancies as soon as I have it.\n- Preliminary recommendation: retain reading X in movement II (horn line) but add a detailed apparatus note discussing the variant that affects articulation and dynamic markings. For movement III I propose two alternative readings for bars 312–318; I will indicate preferred reading and rationale.\n\nI'll upload the summary and a folder with high-resolution images to: /shared/critical_editions/brahms/symphony_3/variants/ — filenames: variant_summary_v1.pdf and images_2025-09-29.zip.\n\nBringing your scan to the meeting would be helpful; if it's possible to upload it beforehand I can start cross-referencing immediately.\n\nSee you Wednesday at 14:00.\n\nBest,\n\nDr. Anna-Lena Kuehn\nPostdoctoral Researcher & Critical Editions Editor\nSymphonic Studies & Critical Editions Unit\nanna-lena.kuehn@uni-leipzig.de",
+      "snippet": "Dear Matthias,  Thank you — I'm available on Wednesday 2025-10-01 at 14:00 CET, that works well for me.  I will prepare the one-page summary of the...",
+      "timestamp": "2025-09-30T10:15:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["INBOX", "Projects", "Action Items"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "👍",
+          "users": ["Matthias"]
+        }
+      ]
+    },
+    {
+      "id": "email_e72ab81f",
+      "threadId": "thread_5da8121448d87e91",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Dr. Anna-Lena Kuehn",
+          "email": "anna-lena.kuehn@uni-leipzig.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Meeting to discuss Brahms Symphony No. 3 critical edition — schedule and pre-meeting materials",
+      "body": "Dear Anna-Lena,\n\nExcellent — confirmed for Wednesday 2025-10-01 at 14:00 CET in my office (Room 3.21). Proposed agenda (30–40 minutes):\n1) Quick review of your variant_summary_v1 (you can highlight the two most urgent items)\n2) Discuss the horn/strings passages in movement II and decide on apparatus wording\n3) Agree on preferred reading for bars 312–318 in movement III and how to present alternatives in the commentary\n4) Timetable to reach the internal commentary draft by 2025-10-15 and submission to the publisher by 2025-10-31\n\nI'll upload the autograph scans to the same folder this afternoon (filename: autograph_scan_horn_2025-09-29.pdf). If you could bring printed copies of your summary that would speed the discussion.\n\nIf you think we should invite Dr. Huber from orchestration to give a 10-minute view on the horn writing, let me know — otherwise we can proceed with just the two of us.\n\nThanks and see you Wednesday,\n\nMatthias",
+      "snippet": "Dear Anna-Lena,  Excellent — confirmed for Wednesday 2025-10-01 at 14:00 CET in my office (Room 3.21). Proposed agenda (30–40 minutes): 1) Quick...",
+      "timestamp": "2025-10-01T07:30:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["SENT", "Projects", "Action Items", "Team"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "👍",
+          "users": ["Anna-Lena"]
+        }
+      ]
+    },
+    {
+      "id": "email_d9cc4cdc",
+      "threadId": "thread_5da8121448d87e91",
+      "from": {
+        "name": "Dr. Anna-Lena Kuehn",
+        "email": "anna-lena.kuehn@uni-leipzig.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "bcc": [],
+      "subject": "Follow-up: outcomes and action items — Brahms Symphony No. 3",
+      "body": "Dear Matthias,\n\nThank you for the meeting yesterday — that was productive. Brief summary and agreed actions:\n\nSummary of outcomes\n- Movement II: We agreed to adopt reading X for the horn line as the main text, and to include a full apparatus note comparing the autograph, first print, and source C variants, with a short commentary on performance implications.\n- Movement III (bars 312–318): We agreed on preferred reading A, but will list B and C as alternative readings in the apparatus with short justificatory notes.\n\nAction items and deadlines\n- Anna-Lena: Finalize the expanded apparatus notes for movements II and III and upload revised draft (variants_app_v2.docx) by 2025-10-10. I will incorporate editorial formatting for the edition.\n- Matthias: Prepare brief paragraph for the publisher cover letter summarizing editorial decisions (due 2025-10-12).\n- Both: Review combined commentary and submit internal draft by 2025-10-15.\n\nFiles uploaded today to /shared/critical_editions/brahms/symphony_3/:\n- variants_app_v1.pdf (original summary)\n- variants_app_v2_draft.docx (my working draft — to be finalized)\n- meeting_notes_2025-10-01.txt\n\nNotes: The microfilm from Staatsbibliothek (source D) arrived this morning; I have checked the relevant pages and there are no further discrepancies beyond what we discussed. I will reflect this in v2.\n\nIf anything is missing or you think we need a short follow-up meeting before 2025-10-15, tell me and I'll schedule a time.\n\nBest regards,\n\nAnna-Lena",
+      "snippet": "Dear Matthias,  Thank you for the meeting yesterday — that was productive. Brief summary and agreed actions:  Summary of outcomes - Movement II: We...",
+      "timestamp": "2025-10-02T11:00:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["INBOX", "Projects", "Action Items", "Team"],
+      "hasAttachments": true,
+      "attachments": [
+        {
+          "id": "att-20251002-001",
+          "filename": "brahms_no3_meeting_minutes.docx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size": 24500.0
+        }
+      ],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "👍",
+          "users": ["Matthias"]
+        }
+      ]
+    },
+    {
+      "id": "email_6392421d",
+      "threadId": "thread_7f9f87897275f2a1",
+      "from": {
+        "name": "Prof. Dr. Markus Eberhardt",
+        "email": "markus.eberhardt@uni-leipzig.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "bcc": [],
+      "subject": "Coordination for Brahms: Symphony No. 3 critical edition — meeting?",
+      "body": "Dear Matthias,\n\nI hope you are well. The Performance & Outreach team and I would like to begin coordinating more closely on the planned critical edition and associated outreach activities for Brahms's Symphony No. 3. Given the overlap between editorial issues and our performance practice proposals, it would be helpful to meet and align on scope, priorities, and a short timeline.\n\nWould you be available for a meeting the week of 2–6 June? I can do Tue 3 June (morning) or Thu 5 June (10:00 CET) — please let me know which suits you best. Proposed agenda items:\n- Collation of sources and outstanding variant readings\n- Agreed editorial principles for articulations/tempo markings\n- Material required by Performance & Outreach (parts, critical notes, rehearsal recordings)\n- Timeline for public-facing materials and workshops\n\nIf you could bring any preliminary notes or a short list of priority variants (particularly if there are items you consider urgent for performance), that would help focus the meeting. We can meet in Seminarraum 3 at the Institute for Musicology or via Zoom if you prefer — I can set up a room/link.\n\nBest regards,\n\nProf. Dr. Markus Eberhardt\nPerformance & Outreach\nInstitute for Musicology, University of Leipzig",
+      "snippet": "Dear Matthias,  I hope you are well. The Performance & Outreach team and I would like to begin coordinating more closely on the planned critical...",
+      "timestamp": "2025-05-20T07:14:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["INBOX", "Team", "Projects"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_ec1720ea",
+      "threadId": "thread_7f9f87897275f2a1",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Prof. Dr. Markus Eberhardt",
+          "email": "markus.eberhardt@uni-leipzig.de"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Coordination for Brahms: Symphony No. 3 critical edition — meeting?",
+      "body": "Dear Markus,\n\nThank you — this is an excellent proposal. I am available on Thursday 5 June at 10:00 CET and would prefer an in-person meeting in Seminarraum 3 if that is convenient. Zoom would also work if any colleagues cannot attend on site.\n\nFor the agenda, I suggest we add these technical points:\n- Review of primary sources (autograph, earliest print, Breitkopf proofs) and outstanding discrepancies\n- Editorial policy on phrasing and dynamics where sources conflict\n- Whether to include a performance-critical appendix with suggested bowings/articulations\n- Coordination of the outreach materials (program notes, short lecture/demo)\n\nI will prepare a preliminary spreadsheet of variant readings for movements II and IV (these contain the most contested passages) and circulate it by Tuesday 3 June. Could you please send me the most recent rehearsal recording and the list of participating players you mentioned? That will help me match editorial decisions to practical considerations for performance.\n\nLooking forward to meeting on the 5th.\n\nKind regards,\n\nDr. Matthias H. Bergmann\nInstitute for Musicology — Brahms Studies",
+      "snippet": "Dear Markus,  Thank you — this is an excellent proposal. I am available on Thursday 5 June at 10:00 CET and would prefer an in-person meeting in...",
+      "timestamp": "2025-05-21T11:42:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["INBOX", "Team"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "👍",
+          "users": ["Markus"]
+        }
+      ]
+    },
+    {
+      "id": "email_ab58a0e6",
+      "threadId": "thread_7f9f87897275f2a1",
+      "from": {
+        "name": "Prof. Dr. Markus Eberhardt",
+        "email": "markus.eberhardt@uni-leipzig.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "bcc": [],
+      "subject": "Re: Coordination for Brahms: Symphony No. 3 critical edition — meeting?",
+      "body": "Dear Matthias,\n\nPerfect — Thursday 5 June at 10:00 CET in Seminarraum 3 it is. I will circulate a Zoom link for those joining remotely.\n\nI will prepare and send the following by Wednesday evening (4 June):\n- A short draft of the outreach plan (program notes, one-page lecture outline)\n- A rehearsal recording from last week's session (audio link)\n- A list of participating players and brief notes on problematic passages they reported\n\nNoted on movements II and IV — I will highlight the rehearsal timestamps corresponding to the disputed bars so you can listen before the meeting. If you could bring the variant spreadsheet on Tuesday as you proposed, that will let us compile a combined list and assign items for editorial decisions versus performance practice recommendations.\n\nIf anything changes, please let me know. Otherwise I will book Seminarraum 3 and send calendar invites to the small working group.\n\nBest,\n\nMarkus",
+      "snippet": "Dear Matthias,  Perfect — Thursday 5 June at 10:00 CET in Seminarraum 3 it is. I will circulate a Zoom link for those joining remotely.  I will...",
+      "timestamp": "2025-05-22T05:30:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["INBOX", "Team", "Action Items"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "👍",
+          "users": ["Markus"]
+        },
+        {
+          "emoji": "🎉",
+          "users": ["Elena Martínez"]
+        }
+      ]
+    },
+    {
+      "id": "email_968ee06b",
+      "threadId": "thread_7f9f87897275f2a1",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Prof. Dr. Markus Eberhardt",
+          "email": "markus.eberhardt@uni-leipzig.de"
+        }
+      ],
+      "cc": [
+        {
+          "name": "Dr. Anna‑Lena Köhler",
+          "email": "anna-lena.koehler@baerenreiter.de"
+        },
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "bcc": [],
+      "subject": "Follow-up and shared folder for Symphony No. 3 materials",
+      "body": "Dear Markus,\n\nThank you — I have noted the meeting on 5 June at 10:00 and will look out for your materials on the 4th.\n\nTo keep files organised, I have created a shared project folder on the institute server: \\\\fileserver\\projects\\Brahms_Symphony3\\\nWithin it I propose the following structure:\n- /Sources (scans and high-res images)\n- /Variants (my spreadsheet and any contributor notes)\n- /Performance (rehearsal audio, performer notes)\n- /Outreach (program texts, slides)\n\nPlease let me know if you need access rights; I will add the Performance & Outreach team once you confirm the participant list. My commitments and proposed short timeline are below:\n- 2025-06-03: I will circulate the variants spreadsheet (mov. II & IV highlighted)\n- 2025-06-05: Working meeting to assign editorial decisions and outreach tasks\n- 2025-10-31: Target for first complete editorial draft for internal peer review\n- 2025-12-15: Aim to finalise edition for submission to the publisher\n\nIf you have additional items to include in the meeting agenda, please send them before Tuesday. Otherwise, I will prepare brief notes on our recommended editorial principles (stemmata, handling of dynamics, and small-performance variants) and bring hard copies.\n\nBest regards,\n\nDr. Matthias H. Bergmann",
+      "snippet": "Dear Markus,  Thank you — I have noted the meeting on 5 June at 10:00 and will look out for your materials on the 4th.  To keep files organised, I...",
+      "timestamp": "2025-06-01T14:00:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["INBOX", "Team", "Projects", "Action Items"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "👍",
+          "users": ["Markus"]
+        }
+      ]
+    },
+    {
+      "id": "email_efd5f87c",
+      "threadId": "thread_45caa5a44a7b4d7c",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Ms. Sofía García",
+          "email": "sofia.garcia@uni-leipzig.de"
+        }
+      ],
+      "cc": [
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "bcc": [],
+      "subject": "Digital critical edition — Brahms Symphony No. 3 (movement III): encoding & meeting request",
+      "body": "Dear Sofía,\n\nI hope you are well. The Symphonic Studies unit is ready to start the digital critical edition for Movement III of Brahms's Symphony No. 3. I would like your advice and support on the following points:\n\n- Preferred encoding workflow for the editorial text (TEI) and the musical score (MEI) so we can link variants to bar numbers.\n- Feasibility of aligning the modern performance recording to the MEI score at bar/measure level for an interactive web view.\n- A short meeting (30–45 min) next week to scope tasks and milestones — I am available Tue/Wed afternoon (CET).\n\nTentative priorities: prepare MEI for the critical score, encode the critical apparatus in TEI, produce a first pass of alignment for testing, and create a small prototype viewer.\n\nCould you let me know your availability and any initial technical constraints you foresee? If helpful, I can prepare the source materials (diplomatic readings, collations, and a high-resolution recording) in a shared folder before our meeting.\n\nBest regards,\n\nMatthias\nDr. Matthias H. Bergmann\nInstitute for Musicology — Symphonic Studies & Critical Editions Unit",
+      "snippet": "Dear Sofía,  I hope you are well. The Symphonic Studies unit is ready to start the digital critical edition for Movement III of Brahms's Symphony No....",
+      "timestamp": "2025-10-02T08:45:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["INBOX", "Projects", "Action Items"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_e17bab01",
+      "threadId": "thread_45caa5a44a7b4d7c",
+      "from": {
+        "name": "Ms. Sofía García",
+        "email": "sofia.garcia@uni-leipzig.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Digital critical edition — Brahms Symphony No. 3 (movement III): encoding & meeting request",
+      "body": "Dear Matthias,\n\nThanks for the clear brief — this sounds like a great project. A couple of quick points from the Digital Editions Lab side before the meeting:\n\n- TEI + MEI is the standard approach and works well: TEI for the apparatus and commentary, MEI for the score encoding. We can use element linking (TEI <ptr> / MEI @xml:id) to connect variants to measures.\n- For audio alignment, we can do a time-stamped alignment at the granularity of measures using either a simple JSON mapping (measure -> start/end time) or an ELAN/IIIF approach if you want annotations that are shareable with other tools. The mapping depends on how precise you need playback jumps versus visual highlighting.\n- Do you already have any MusicXML or MEI files, or only scans/diplomatic transcriptions? Existing MusicXML would speed up the process.\n\nI can meet next week on:\n- Tue 2025-10-07, 14:00–15:00 CET or 15:30–16:30 CET\n- Wed 2025-10-08, 10:00–11:00 CET\n\nIf Tue 14:00 works, I will prepare a short prototype repo and an MEI template to review. Also: please confirm where you will place the source files (shared drive or our lab server) and whether there are any copyright/licensing constraints for the recording.\n\nBest,\n\nSofía\nMs. Sofía García\nResearch Programmer / Digital Editions Lab\nInstitute for Musicology, University of Leipzig",
+      "snippet": "Dear Matthias,  Thanks for the clear brief — this sounds like a great project. A couple of quick points from the Digital Editions Lab side before the...",
+      "timestamp": "2025-10-02T11:30:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Team", "Projects"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": []
+    },
+    {
+      "id": "email_b3a760b0",
+      "threadId": "thread_45caa5a44a7b4d7c",
+      "from": {
+        "name": "Dr. Matthias H. Bergmann",
+        "email": "matthias.bergmann@brahms-studies.org"
+      },
+      "to": [
+        {
+          "name": "Ms. Sofía García",
+          "email": "sofia.garcia@uni-leipzig.de"
+        }
+      ],
+      "cc": [
+        {
+          "name": "Anna-Lena Köhler",
+          "email": "anna.lena.koehler@gmx.de"
+        },
+        {
+          "name": "Elena Martínez",
+          "email": "elena.martinez@uni-leipzig.de"
+        }
+      ],
+      "bcc": [],
+      "subject": "Re: Digital critical edition — Brahms Symphony No. 3 (movement III): encoding & meeting request",
+      "body": "Dear Sofía,\n\nThank you — Tue 2025-10-07 at 14:00 CET is perfect. I have uploaded the primary materials to our shared drive under /projects/brahms/symphony3/movement_III/:\n\n- movement_III_scores.zip (diplomatic transcriptions and editorial normalizations in MusicXML where available)\n- collations_table.xlsx (variant readings and sources)\n- recording_highres.wav (full movement, rights cleared for research use)\n- notes_for_encoding.pdf (my priorities for apparatus tagging and example citations)\n\nYour suggestion to use measure -> time JSON mapping sounds good for the prototype; if later we decide to export to ELAN/IIIF we can extend the mapping. For the editorial workflow I'd like the following priorities for the first delivery by 2025-10-31:\n1) MEI files for the edited score (basic encoding of measures and editorial sigla)\n2) TEI skeleton for the critical apparatus with pointers to MEI measure IDs\n3) A simple web prototype that highlights measures in sync with the recording (measure jumps + basic navigation)\n\nNo special licensing beyond standard University research use — but please note that the recording cannot be published publicly without further clearance; for the prototype we can host on the lab's internal test server.\n\nI'll bring a short list of contentious readings to the meeting so we can decide encoding conventions.\n\nBest regards,\n\nMatthias",
+      "snippet": "Dear Sofía,  Thank you — Tue 2025-10-07 at 14:00 CET is perfect. I have uploaded the primary materials to our shared drive under...",
+      "timestamp": "2025-10-06T07:15:00.000Z",
+      "isRead": true,
+      "isStarred": true,
+      "labels": ["INBOX", "Projects", "Reference"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "\u001f44d",
+          "users": ["Elena Martínez"]
+        }
+      ]
+    },
+    {
+      "id": "email_71b19181",
+      "threadId": "thread_45caa5a44a7b4d7c",
+      "from": {
+        "name": "Ms. Sofía García",
+        "email": "sofia.garcia@uni-leipzig.de"
+      },
+      "to": [
+        {
+          "name": "Dr. Matthias H. Bergmann",
+          "email": "matthias.bergmann@brahms-studies.org"
+        }
+      ],
+      "cc": [
+        {
+          "name": "Dr. Anna‑Lena Köhler",
+          "email": "anna-lena.koehler@baerenreiter.de"
+        }
+      ],
+      "bcc": [],
+      "subject": "Re: Digital critical edition — Brahms Symphony No. 3 (movement III): encoding & meeting request",
+      "body": "Dear Matthias,\n\nAll noted — thank you for uploading the materials and for the clear priorities. I confirm the meeting today, Tue 2025-10-07 at 14:00 CET (Teams link in calendar invite).\n\nPre-meeting actions from my side:\n- I will set up a private Git repository in the lab (brahms-symphony3-mvIII) and add MEI/TEI templates.\n- Prepare a minimal measure->time JSON using the recording for demonstration.\n- Draft a short checklist for the encoding conventions (variant tagging, use of <app> in TEI, MEI @xml:id scheme).\n- Provision a test instance on our internal server where the prototype will run (not public).\n\nQuestions for the meeting:\n1) Preferred XML namespace versions for TEI/MEI you want us to target? We usually use TEI P5 and MEI 4, but we can adapt.\n2) Do you want editorial sigla expanded inline or kept as abbreviations in the apparatus?\n3) Any particular metadata schema for the repository (Dublin Core, MODS)?\n\nNext milestone: I propose a short status check on 2025-10-30 to review the MEI files and the prototype. If that works for you, I'll block 30 minutes in your calendar.\n\nSee you at 14:00.\n\nBest,\n\nSofía",
+      "snippet": "Dear Matthias,  All noted — thank you for uploading the materials and for the clear priorities. I confirm the meeting today, Tue 2025-10-07 at 14:00...",
+      "timestamp": "2025-10-07T13:05:00.000Z",
+      "isRead": true,
+      "isStarred": false,
+      "labels": ["SENT", "Team", "Action Items"],
+      "hasAttachments": false,
+      "attachments": [],
+      "isImportant": true,
+      "category": "primary",
+      "isVerifiedSender": true,
+      "reactions": [
+        {
+          "emoji": "\u001f389",
+          "users": ["Richard Samuel Osei"]
+        }
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "id": "INBOX",
+      "name": "Inbox",
+      "color": "#4285f4",
+      "type": "system"
+    },
+    {
+      "id": "SENT",
+      "name": "Sent",
+      "color": "#0f9d58",
+      "type": "system"
+    },
+    {
+      "id": "TRASH",
+      "name": "Trash",
+      "color": "#db4437",
+      "type": "system"
+    },
+    {
+      "id": "SPAM",
+      "name": "Spam",
+      "color": "#f4b400",
+      "type": "system"
+    },
+    {
+      "id": "DRAFT",
+      "name": "Drafts",
+      "color": "#ab47bc",
+      "type": "system"
+    },
+    {
+      "id": "SNOOZED",
+      "name": "Snoozed",
+      "color": "#f09300",
+      "type": "system"
+    }
+  ],
+  "contacts": [
+    {
+      "name": "Anna-Lena Köhler",
+      "email": "anna.lena.koehler@gmx.de",
+      "lastContacted": "2025-06-10T07:20:00.000Z"
+    },
+    {
+      "name": "Richard Samuel Osei",
+      "email": "richard.osei@gmail.com",
+      "lastContacted": "2025-06-06T08:30:00.000Z"
+    },
+    {
+      "name": "Elena Martínez",
+      "email": "elena.martinez@uni-leipzig.de",
+      "lastContacted": "2025-09-15T15:20:00.000Z"
+    },
+    {
+      "name": "Dr. Anna‑Lena Köhler",
+      "email": "anna-lena.koehler@baerenreiter.de",
+      "lastContacted": "2025-11-05T07:30:00.000Z"
+    },
+    {
+      "name": "Maestro Lukas Hartmann",
+      "email": "lukas.hartmann@gewandhaus-leipzig.de",
+      "lastContacted": "2025-06-18T15:20:00.000Z"
+    },
+    {
+      "name": "Dr. Sofía Márquez",
+      "email": "sofia.marquez@eman-archives.eu",
+      "lastContacted": "2025-06-10T16:20:00.000Z"
+    },
+    {
+      "name": "Dr. Anna-Lena Kuehn",
+      "email": "anna-lena.kuehn@uni-leipzig.de",
+      "lastContacted": "2025-10-02T11:00:00.000Z"
+    },
+    {
+      "name": "Prof. Dr. Markus Eberhardt",
+      "email": "markus.eberhardt@uni-leipzig.de",
+      "lastContacted": "2025-06-01T14:00:00.000Z"
+    },
+    {
+      "name": "Ms. Sofía García",
+      "email": "sofia.garcia@uni-leipzig.de",
+      "lastContacted": "2025-10-07T13:05:00.000Z"
+    }
+  ]
+}
