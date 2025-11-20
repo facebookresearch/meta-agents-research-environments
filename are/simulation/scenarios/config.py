@@ -93,7 +93,7 @@ class ScenarioRunnerConfig(BaseModel):
     a2a_endpoint: str | None = None
 
     # Toggles scenario JSON export format -- must be one of "hf" or "lite"
-    trace_dump_format: str = "hf"
+    trace_dump_format: str = "lite"
 
     # Whether to use the custom logger in the agent (default: True)
     use_custom_logger: bool = True

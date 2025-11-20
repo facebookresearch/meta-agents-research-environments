@@ -15,7 +15,7 @@ from are.simulation.scenarios.utils.registry import register_scenario
 from are.simulation.types import EventRegisterer
 
 
-@register_scenario("gmail_browser")
+@register_scenario("scenario_gmail_browser")
 class GmailBrowserScenario(Scenario):
     """
     Scenario that demonstrates shared browser between Gmail app and BrowserAgent.
@@ -38,14 +38,12 @@ class GmailBrowserScenario(Scenario):
 
     def initialize(self, **kwargs) -> None:
         """Initialize scenario and create browser instance."""
-        super().initialize(**kwargs)
 
         # Create browser instance ONCE
         self.browser = Browser()
         self._loop.run_until_complete(self.browser.start())
 
-        # Now initialize apps with browser
-        self.init_and_populate_apps(**kwargs)
+        super().initialize(**kwargs)
 
     def init_and_populate_apps(self, **kwargs) -> None:
         """Initialize apps with shared browser."""
@@ -54,7 +52,7 @@ class GmailBrowserScenario(Scenario):
         aui = AgentUserInterface()
 
         # Gmail app with shared browser
-        gmail = GmailApp(browser=self.browser)  # type: ignore[call-arg]
+        gmail = GmailApp(browser=self.browser, loop=self._loop)  # type: ignore[call-arg]
 
         # Register all apps
         self.apps = [aui, gmail]
@@ -67,7 +65,7 @@ class GmailBrowserScenario(Scenario):
         with EventRegisterer.capture_mode():
             # Send initial task to agent
             event1 = aui.send_message_to_agent(
-                content="Please navigate to Gmail and check the inbox.",
+                content="Search for the time in San Francisco right now?",
             ).depends_on(None, delay_seconds=2)
 
         self.events = [event1]

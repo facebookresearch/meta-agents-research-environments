@@ -329,6 +329,7 @@ class JsonScenarioExporter:
                     validation_decision,
                     export_apps=export_apps,
                     scenario_exception=scenario_exception,
+                    world_logs=env.world_logs,
                 )
             elif trace_dump_format == "lite":
                 logging.warning(
@@ -357,6 +358,7 @@ class JsonScenarioExporter:
                     validation_decision,
                     export_apps=export_apps,
                     scenario_exception=scenario_exception,
+                    world_logs=env.world_logs,
                 )
                 lite_json_str = self.export_to_json_lite(
                     env,

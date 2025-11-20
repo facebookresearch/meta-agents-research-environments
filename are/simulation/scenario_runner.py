@@ -249,6 +249,7 @@ class ScenarioRunner:
             agent_config=agent_config, env=env
         )
         logger.info(f"Running with Agent {agent}")
+
         result = are_simulation_agent.run_scenario(
             scenario=scenario, notification_system=env.notification_system
         )

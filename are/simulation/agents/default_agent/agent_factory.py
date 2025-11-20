@@ -4,6 +4,7 @@
 # This source code is licensed under the terms described in the LICENSE file in
 # the root directory of this source tree.
 
+import asyncio
 
 from browser_use import Browser
 
@@ -70,6 +71,7 @@ def are_simulation_browser_react_agent(
     llm_engine: LLMEngine,
     base_agent_config: ARESimulationReactBaseAgentConfig,
     browser: Browser | None = None,
+    loop: asyncio.AbstractEventLoop | None = None,
 ):
     """
     Creates a browser-enabled ReAct agent with the same configuration as
@@ -82,6 +84,7 @@ def are_simulation_browser_react_agent(
         llm_engine: The LLM engine to use for agent reasoning
         base_agent_config: Base configuration (same as standard agent)
         browser: Optional Browser instance to share. If None, agent creates its own.
+        loop: Optional event loop to use. If None, uses asyncio.get_event_loop().
 
     Returns:
         BrowserAgent configured for ARE simulation with browser capabilities
@@ -89,6 +92,7 @@ def are_simulation_browser_react_agent(
     return BrowserAgent(
         llm_engine=llm_engine,
         browser=browser,
+        loop=loop,
         tools={},
         system_prompts={
             "system_prompt": str(base_agent_config.system_prompt),

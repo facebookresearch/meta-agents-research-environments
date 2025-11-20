@@ -54,6 +54,17 @@ class AgentConfigBuilder(AbstractAgentConfigBuilder):
                     ),
                 )
 
+            case "browser":
+                return ARESimulationReactAgentConfig(
+                    agent_name=agent_name,
+                    base_agent_config=ARESimulationReactBaseAgentConfig(
+                        system_prompt=str(
+                            DEFAULT_ARE_SIMULATION_REACT_JSON_SYSTEM_PROMPT
+                        ),
+                        max_iterations=80,
+                    ),
+                )
+
             case _:
                 raise ValueError(f"Agent {agent_name} not found")
 

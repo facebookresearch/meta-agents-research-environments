@@ -50,12 +50,14 @@ class BrowserAgent(BaseAgent):
     Args:
         llm_engine: The LLM engine for agent reasoning
         browser: Optional Browser instance to use. If None, agent creates its own.
+        loop: Optional event loop to use. Will be injected from scenario before use.
     """
 
     def __init__(
         self,
         llm_engine: LLMEngine,
         browser: Browser | None = None,
+        loop: asyncio.AbstractEventLoop | None = None,
         **kwargs,
     ):
         # Extend the Role Dictionary
@@ -70,26 +72,27 @@ class BrowserAgent(BaseAgent):
         if "action_executor" not in kwargs:
             kwargs["action_executor"] = JsonActionExecutor(use_custom_logger=True)
 
-        self._loop = asyncio.new_event_loop()
+        # Store loop (can be None initially, will be injected before use)
+        self._loop = loop
 
         # Use provided browser or create new one
         self.browser = browser
         self._owns_browser = browser is None  # Track if we created the browser
 
         # Lazy initialization of browser during first run
-        conditional_pre_steps = kwargs.get("conditional_pre_steps", [])
+        conditional_pre_steps = kwargs.pop("conditional_pre_steps", [])
 
         # Only add browser start step if we need to create our own browser
-        if self._owns_browser:
-            conditional_pre_steps.insert(
-                0,
-                ConditionalStep(
-                    condition=lambda agent: agent.iterations
-                    == 0,  # Only the first time
-                    function=lambda _agent: self._start_browser(),
-                    name="start_browser_lazy",
-                ),
-            )
+        # if self._owns_browser:
+        #     conditional_pre_steps.insert(
+        #         0,
+        #         ConditionalStep(
+        #             condition=lambda agent: agent.iterations
+        #             == 0,  # Only the first time
+        #             function=lambda _agent: self._start_browser(),
+        #             name="start_browser_lazy",
+        #         ),
+        #     )
 
         # Always add the browser state capture pre-step
         conditional_pre_steps.insert(
@@ -131,7 +134,9 @@ class BrowserAgent(BaseAgent):
                 )
                 timestamp = self.make_timestamp()
                 screenshot = Attachment(
-                    name=f"ss_{timestamp}", base64_data=browser_state.screenshot
+                    name=f"ss_{timestamp}",
+                    base64_data=browser_state.screenshot,
+                    mime="image/jpeg",
                 )
                 self.append_agent_log(
                     BrowserStateLog(

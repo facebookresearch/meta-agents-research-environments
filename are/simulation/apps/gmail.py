@@ -2,42 +2,20 @@ import asyncio
 import json
 import logging
 import typing as t
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from browser_use import (
-    Agent,
     Browser,
-    BrowserSession,
-    ChatBrowserUse,  # Browser control
-    DomService,  # DOM extraction
-)
-from browser_use.agent.prompts import (  # Message formatting
-    AgentMessagePrompt,
-    SystemPrompt,
 )
 from browser_use.agent.views import (  # State tracking
     ActionResult,
-    AgentHistory,
-    AgentState,
 )
-from browser_use.browser.views import (
-    BrowserStateSummary,  # Browser state data structure
-)
-from browser_use.llm.base import BaseChatModel  # LLM abstraction
-from browser_use.llm.openai import ChatOpenAI
-from browser_use.tools.service import Tools
 from browser_use.tools.views import SearchAction
-from pydantic import Field
 from web_simulators.simulation import Simulation
 
-from are.simulation.agents.multimodal import Attachment
-from are.simulation.apps.agent_user_interface import AgentUserInterface
 from are.simulation.apps.app import App
-from are.simulation.scenarios.scenario import Scenario
-from are.simulation.scenarios.utils.registry import register_scenario
-from are.simulation.scenarios.validation_result import ScenarioValidationResult
-from are.simulation.tool_utils import OperationType, data_tool
-from are.simulation.types import EventRegisterer, event_registered
+from are.simulation.tool_utils import OperationType, app_tool, data_tool
+from are.simulation.types import event_registered
 from are.simulation.utils import get_state_dict, type_check
 
 logger = logging.getLogger(__name__)
@@ -55,11 +33,16 @@ class GmailApp(App):
     name: str | None = "GmailApp"
     _state_file: str = "data/gmail_state.json"
 
-    def __init__(self, browser: Browser | None = None):
+    def __init__(
+        self,
+        browser: Browser | None = None,
+        loop: asyncio.AbstractEventLoop | None = None,
+    ):
         """Initialize the Gmail App by starting and spawning the simulation immediately.
 
         Args:
             browser: Optional Browser instance to use. If None, creates its own browser.
+            loop: Optional event loop to use. If None, uses asyncio.get_event_loop().
         """
         self._connected = False
 
@@ -67,15 +50,12 @@ class GmailApp(App):
         self.browser = browser if browser is not None else Browser()
         self._owns_browser = browser is None  # Track if we created the browser
 
-        # Async event loop for the simulation
-        self._loop = asyncio.new_event_loop()
+        # Use provided loop or get the current event loop
+        self._loop = loop if loop is not None else asyncio.get_event_loop()
+
         self.app_state = self._load_state_from_file(self._state_file)
         self.sim: Simulation = self.spawn()
-        self.agent = Agent(task="", llm=ChatBrowserUse())
 
-        # Only start browser if we own it
-        if self._owns_browser:
-            self._fake_await(self.browser.start())
         super().__init__(self.name)
 
     def _load_state_from_file(self, path: str) -> dict:
@@ -83,22 +63,24 @@ class GmailApp(App):
         with open(path) as f:
             return json.load(f)
 
-    def _fake_await(self, coro: t.Any) -> t.Any:
-        """Run an async coroutine."""
+    def _run_async(self, coro: t.Any) -> t.Any:
+        """Run an async coroutine in the event loop."""
         return self._loop.run_until_complete(coro)
 
     def spawn(self):
         """Spawn the simulation"""
-        sim: Simulation = self._fake_await(
+        sim: Simulation = self._run_async(
             Simulation.spawn("gmail-clone", state=self.app_state, headless=True)
         )
         self._connected = True
-        current_url = self._fake_await(sim.get_url())
+        current_url = self._run_async(sim.get_url())
         logger.info("Successfully spawned up the simulation")
         # Only start browser if we own it (external browsers are already started)
+        logger.info(f"Gmail spawning new browser instance: {self._owns_browser}")
+
         if self._owns_browser:
-            self._fake_await(self.browser.start())
-        self._fake_await(self.browser.navigate_to(url=current_url))
+            self._run_async(self.browser.start())
+        self._run_async(self.browser.navigate_to(url=current_url))
 
         return sim
 
@@ -126,15 +108,22 @@ class GmailApp(App):
 
     def close(self):
         """Shutdown the Simulation"""
-        self._fake_await(self.sim.aclose())
+        self._run_async(self.sim.aclose())
         # Only stop browser if we own it
         if self._owns_browser:
-            self._fake_await(self.browser.stop())
+            self._run_async(self.browser.stop())
 
     @type_check
+    @app_tool()
     @data_tool()
     @event_registered(operation_type=OperationType.READ)
     def search(self, params: SearchAction):
+        """
+        Perform a web search using the specified search engine.
+
+        :param params: SearchAction containing query string and search engine
+        :returns: ActionResult with search completion status and memory
+        """
         import urllib.parse
 
         encoded_query = urllib.parse.quote_plus(params.query)
@@ -163,8 +152,8 @@ class GmailApp(App):
                     new_tab=use_new_tab,
                 )
             )
-            self._fake_await(event)
-            self._fake_await(event.event_result(raise_if_any=True, raise_if_none=False))
+            self._run_async(event)
+            self._run_async(event.event_result(raise_if_any=True, raise_if_none=False))
             memory = f"Searched {params.engine.title()} for '{params.query}'"
             msg = f"🔍  {memory}"
             logger.info(msg)
