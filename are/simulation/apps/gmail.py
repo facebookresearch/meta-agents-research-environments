@@ -226,7 +226,7 @@ class GmailApp(App):
         # Cap wait time at maximum 30 seconds
         actual_seconds = min(max(seconds - 1, 0), 30)
         memory = f"Waited for {seconds} seconds"
-        logger.info(f'🕒 waited for {seconds} second{"" if seconds == 1 else "s"}')
+        logger.info(f"🕒 waited for {seconds} second{'' if seconds == 1 else 's'}")
         self._run_async(asyncio.sleep(actual_seconds))
         return memory
 
@@ -266,9 +266,11 @@ class GmailApp(App):
 
             # Get the element node
             async def get_and_click():
-                node = await self.browser.session.get_element_by_index(index)
+                node = await self.browser.get_element_by_index(index)
                 if node is None:
-                    return f"Element index {index} not available - page may have changed"
+                    return (
+                        f"Element index {index} not available - page may have changed"
+                    )
 
                 event = self.browser.event_bus.dispatch(ClickElementEvent(node=node))
                 await event
@@ -287,7 +289,7 @@ class GmailApp(App):
         try:
 
             async def click_coord():
-                page = await self.browser.session.get_current_page()
+                page = await self.browser.get_current_page()
                 if page is None:
                     return "No active page found"
 
@@ -320,9 +322,11 @@ class GmailApp(App):
             from browser_use.browser.events import TypeTextEvent
 
             async def type_text():
-                node = await self.browser.session.get_element_by_index(index)
+                node = await self.browser.get_element_by_index(index)
                 if node is None:
-                    return f"Element index {index} not available - page may have changed"
+                    return (
+                        f"Element index {index} not available - page may have changed"
+                    )
 
                 event = self.browser.event_bus.dispatch(
                     TypeTextEvent(node=node, text=text, clear=clear)
@@ -335,7 +339,9 @@ class GmailApp(App):
             logger.debug(memory)
             return memory
         except Exception as e:
-            logger.error(f"Failed to type text into element {index}: {type(e).__name__}: {e}")
+            logger.error(
+                f"Failed to type text into element {index}: {type(e).__name__}: {e}"
+            )
             return f"Failed to type text into element {index}: {str(e)}"
 
     @type_check
@@ -379,10 +385,14 @@ class GmailApp(App):
             from browser_use.browser.events import SwitchTabEvent
 
             async def do_switch():
-                target_id = await self.browser.session.get_target_id_from_tab_id(tab_id)
-                event = self.browser.event_bus.dispatch(SwitchTabEvent(target_id=target_id))
+                target_id = await self.browser.get_target_id_from_tab_id(tab_id)
+                event = self.browser.event_bus.dispatch(
+                    SwitchTabEvent(target_id=target_id)
+                )
                 await event
-                new_target_id = await event.event_result(raise_if_any=False, raise_if_none=False)
+                new_target_id = await event.event_result(
+                    raise_if_any=False, raise_if_none=False
+                )
 
                 if new_target_id:
                     return f"Switched to tab #{new_target_id[-4:]}"
@@ -400,7 +410,7 @@ class GmailApp(App):
     @env_tool()
     @app_tool()
     @data_tool()
-    @event_registered(operation_type=OperationType.DELETE)
+    @event_registered(operation_type=OperationType.WRITE)
     def close_tab(self, tab_id: str) -> str:
         """
         Close a tab by tab_id.
@@ -412,8 +422,10 @@ class GmailApp(App):
             from browser_use.browser.events import CloseTabEvent
 
             async def do_close():
-                target_id = await self.browser.session.get_target_id_from_tab_id(tab_id)
-                event = self.browser.event_bus.dispatch(CloseTabEvent(target_id=target_id))
+                target_id = await self.browser.get_target_id_from_tab_id(tab_id)
+                event = self.browser.event_bus.dispatch(
+                    CloseTabEvent(target_id=target_id)
+                )
                 await event
                 await event.event_result(raise_if_any=False, raise_if_none=False)
                 return f"Closed tab #{tab_id}"
@@ -447,7 +459,7 @@ class GmailApp(App):
             async def do_scroll():
                 node = None
                 if index is not None and index != 0:
-                    node = await self.browser.session.get_element_by_index(index)
+                    node = await self.browser.get_element_by_index(index)
                     if node is None:
                         return f"Element index {index} not found in browser state"
 
@@ -455,7 +467,7 @@ class GmailApp(App):
 
                 # Get viewport height
                 try:
-                    cdp_session = await self.browser.session.get_or_create_cdp_session()
+                    cdp_session = await self.browser.get_or_create_cdp_session()
                     metrics = await cdp_session.cdp_client.send.Page.getLayoutMetrics(
                         session_id=cdp_session.session_id
                     )
@@ -481,9 +493,13 @@ class GmailApp(App):
 
                 target = f"element {index}" if index is not None and index != 0 else ""
                 if pages == 1.0:
-                    return f"Scrolled {direction} {target} {viewport_height}px".replace("  ", " ")
+                    return f"Scrolled {direction} {target} {viewport_height}px".replace(
+                        "  ", " "
+                    )
                 else:
-                    return f"Scrolled {direction} {target} {pages} pages".replace("  ", " ")
+                    return f"Scrolled {direction} {target} {pages} pages".replace(
+                        "  ", " "
+                    )
 
             memory = self._run_async(do_scroll())
             logger.info(f"🔍 {memory}")
@@ -554,11 +570,15 @@ class GmailApp(App):
             from browser_use.browser.events import GetDropdownOptionsEvent
 
             async def get_options():
-                node = await self.browser.session.get_element_by_index(index)
+                node = await self.browser.get_element_by_index(index)
                 if node is None:
-                    return f"Element index {index} not available - page may have changed"
+                    return (
+                        f"Element index {index} not available - page may have changed"
+                    )
 
-                event = self.browser.event_bus.dispatch(GetDropdownOptionsEvent(node=node))
+                event = self.browser.event_bus.dispatch(
+                    GetDropdownOptionsEvent(node=node)
+                )
                 dropdown_data = await event.event_result(
                     timeout=3.0, raise_if_none=True, raise_if_any=True
                 )
@@ -592,9 +612,11 @@ class GmailApp(App):
             from browser_use.browser.events import SelectDropdownOptionEvent
 
             async def do_select():
-                node = await self.browser.session.get_element_by_index(index)
+                node = await self.browser.get_element_by_index(index)
                 if node is None:
-                    return f"Element index {index} not available - page may have changed"
+                    return (
+                        f"Element index {index} not available - page may have changed"
+                    )
 
                 event = self.browser.event_bus.dispatch(
                     SelectDropdownOptionEvent(node=node, text=text)
@@ -610,7 +632,9 @@ class GmailApp(App):
                     if "short_term_memory" in selection_data:
                         return selection_data["short_term_memory"]
                     else:
-                        return selection_data.get("error", f"Failed to select option: {text}")
+                        return selection_data.get(
+                            "error", f"Failed to select option: {text}"
+                        )
 
             memory = self._run_async(do_select())
             logger.info(memory)
@@ -696,7 +720,7 @@ class GmailApp(App):
         try:
 
             async def run_js():
-                cdp_session = await self.browser.session.get_or_create_cdp_session()
+                cdp_session = await self.browser.get_or_create_cdp_session()
 
                 result = await cdp_session.cdp_client.send.Runtime.evaluate(
                     params={
@@ -710,7 +734,7 @@ class GmailApp(App):
                 # Check for JavaScript execution errors
                 if result.get("exceptionDetails"):
                     exception = result["exceptionDetails"]
-                    return f'JavaScript execution error: {exception.get("text", "Unknown error")}'
+                    return f"JavaScript execution error: {exception.get('text', 'Unknown error')}"
 
                 # Get the result data
                 result_data = result.get("result", {})
@@ -741,7 +765,9 @@ class GmailApp(App):
                 return result_text
 
             memory = self._run_async(run_js())
-            logger.debug(f"JavaScript executed successfully, result length: {len(memory)}")
+            logger.debug(
+                f"JavaScript executed successfully, result length: {len(memory)}"
+            )
             return memory
         except Exception as e:
             logger.error(f"Failed to execute JavaScript: {type(e).__name__}: {e}")

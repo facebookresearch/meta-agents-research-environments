@@ -65,7 +65,7 @@ class GmailBrowserScenario(Scenario):
         with EventRegisterer.capture_mode():
             # Send initial task to agent
             event1 = aui.send_message_to_agent(
-                content="Search for the time in San Francisco right now?",
+                content="What's the top email say? Open it and read?",
             ).depends_on(None, delay_seconds=2)
 
         self.events = [event1]
