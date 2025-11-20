@@ -18,7 +18,7 @@ uv pip install browser_use
 
 With the same `VIRTUALENV` as above: `cd` into the `<your_root_dir>/web_simulators/packages/web-simulators`
 
-> Note: Please check out to `sid/downgrade-python`. [Link](https://github.com/explodinggradients/web_simulators/tree/sid/downgrade-python)
+> Note: Please check out to `sid/downgrade-python`. [Link to branch](https://github.com/explodinggradients/web_simulators/tree/sid/downgrade-python)
 
 ```bash
 # keep the same VIRTUALENV.
@@ -27,15 +27,23 @@ cd web_simulators/packages/web-simulators/packages/web-simulators
 uv pip install -e .
 ```
 
+### 3. Data + Misc.
+
+The state data (from web_simulators) is read from [`./data/gmail_state.json`](./data/gmail_state.json). It is read by the Gmail app at [`are/simulation/apps/gmail.py`](./are/simulation/apps/gmail.py).
+
+For future apps, this can be modified as needed.
+
+- [ ] Ideally load this in a better way from web_simulators.
+
 ---
 
 ## Scenarios
 
 As of now a basic scenario exists. Following are where the apps, agents and scenarios are implemented:
 
-- Scenario: `are/simulation/scenarios/scenario_gmail_browser/scenario.py`
-- Custom browser agenr using `browser_use`: `are/simulation/agents/custom_agents/browser_agent.py`
-- "Gmail" App, Better name/tools possible: `are/simulation/apps/gmail.py`
+- Scenario: [`are/simulation/scenarios/scenario_gmail_browser/scenario.py`](./are/simulation/scenarios/scenario_gmail_browser/scenario.py)
+- Custom browser agent using `browser_use`: [`are/simulation/agents/custom_agents/browser_agent.py`](./are/simulation/agents/custom_agents/browser_agent.py)
+- "Gmail" App, Better name/tools possible: [`are/simulation/apps/gmail.py`](./are/simulation/apps/gmail.py)
 
 ```bash
 are-run -s scenario_gmail_browser -m 'gpt-5-mini' -a browser -mp local --endpoint https://api.openai.com/v1 --export --output_dir ./traces
