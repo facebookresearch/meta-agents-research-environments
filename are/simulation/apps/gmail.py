@@ -3,6 +3,7 @@ import json
 import logging
 import typing as t
 from dataclasses import dataclass
+from pathlib import Path
 
 from browser_use import Browser
 from web_simulators.simulation import Simulation
@@ -25,7 +26,7 @@ class GmailApp(App):
     _skip_pickle_fields = _skip_deepcopy_fields
 
     name: str | None = "GmailApp"
-    _state_file: str = "data/gmail_state.json"
+    _state_file: str = str(Path(__file__).parent.parent / "data" / "persona_06908b1b_gmail.json")
 
     def __init__(
         self,
@@ -47,15 +48,16 @@ class GmailApp(App):
         # Use provided loop or get the current event loop
         self._loop = loop if loop is not None else asyncio.get_event_loop()
 
-        self.app_state = self._load_state_from_file(self._state_file)
+        self.initial_state = self._load_state_from_file(self._state_file)
         self.sim: Simulation = self.spawn()
 
         super().__init__(self.name)
-
+    
     def _load_state_from_file(self, path: str) -> dict:
         """Load Gmail state from any JSON file"""
         with open(path) as f:
-            return json.load(f)
+            data = json.load(f)
+        return data
 
     def _run_async(self, coro: t.Any) -> t.Any:
         """Run an async coroutine in the event loop."""
@@ -64,7 +66,7 @@ class GmailApp(App):
     def spawn(self):
         """Spawn the simulation"""
         sim: Simulation = self._run_async(
-            Simulation.spawn("gmail-clone", state=self.app_state, headless=True)
+            Simulation.spawn("gmail-clone", state=self.initial_state, headless=True)
         )
         self._connected = True
         current_url = self._run_async(sim.get_url())
@@ -82,7 +84,7 @@ class GmailApp(App):
         """
         Return the app's current state for the Gmail Simulation.
         """
-        return get_state_dict(self, ["app_state"])
+        return self._run_async(self.sim.get_state())
 
     def load_state(self, state_dict: dict[str, t.Any]):
         """

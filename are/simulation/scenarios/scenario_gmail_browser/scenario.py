@@ -80,14 +80,11 @@ class GmailBrowserScenario(Scenario):
         Returns:
             ScenarioValidationResult with success status and feedback
         """
-        # For this test scenario, we simply validate that it ran successfully
-        # In a real scenario, you would check specific conditions like:
-        # - Did the agent navigate to Gmail?
-        # - Did the agent perform the requested action?
-        # - Is the browser state correct?
+        gmail = env.get_app("GmailApp")
+        current_state = gmail.get_state()
 
         return ScenarioValidationResult(
-            success=True,
+            success=len(current_state["emails"]) > 1,
         )
 
     def get_user_prompt(self) -> str:
