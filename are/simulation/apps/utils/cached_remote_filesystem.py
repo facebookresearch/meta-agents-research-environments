@@ -220,6 +220,9 @@ class CachedRemoteFileSystem(AbstractFileSystem):
         """
         Open a file.
 
+        Uses per-file locking to prevent race conditions when multiple threads
+        try to download and cache the same file concurrently.
+
         :param path: Path to open
         :param mode: Mode to open in
         :param block_size: Block size for reading
@@ -228,11 +231,14 @@ class CachedRemoteFileSystem(AbstractFileSystem):
         :param kwargs: Additional arguments
         :return: File handle
         """
-        return self.fs.open(
-            path,
-            mode=mode,
-            block_size=block_size,
-            cache_options=cache_options,
-            compression=compression,
-            **kwargs,
-        )
+        # Use per-file locking to prevent concurrent downloads of the same file
+        file_lock = self.cache.get_file_lock(self.remote_uri, path)
+        with file_lock:
+            return self.fs.open(
+                path,
+                mode=mode,
+                block_size=block_size,
+                cache_options=cache_options,
+                compression=compression,
+                **kwargs,
+            )

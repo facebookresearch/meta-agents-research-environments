@@ -34,6 +34,9 @@ class RemoteFsCache:
 
     def __init__(self):
         self._lock = threading.RLock()
+        # Per-file locks to prevent concurrent downloads of the same file
+        self._file_locks: dict[str, threading.Lock] = {}
+        self._file_locks_lock = threading.Lock()
         # Cache structure:
         # {
         #   "remote_uri": {
@@ -154,6 +157,23 @@ class RemoteFsCache:
             # to any cached filesystem instances
             self._cache.clear()
             logger.info("Cleared remote filesystem cache")
+        # Also clear file locks
+        with self._file_locks_lock:
+            self._file_locks.clear()
+
+    def get_file_lock(self, remote_uri: str, path: str) -> threading.Lock:
+        """
+        Get a lock for a specific file path to prevent concurrent downloads.
+
+        :param remote_uri: The remote filesystem URI
+        :param path: The file path
+        :return: A lock for the file
+        """
+        key = f"{remote_uri}:{path}"
+        with self._file_locks_lock:
+            if key not in self._file_locks:
+                self._file_locks[key] = threading.Lock()
+            return self._file_locks[key]
 
     def get_cached_filesystem(self, remote_uri: str) -> AbstractFileSystem:
         """
