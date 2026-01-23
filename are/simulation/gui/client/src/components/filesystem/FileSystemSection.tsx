@@ -91,7 +91,8 @@ interface FileSystemSectionProps {
 }
 
 interface TreeItemProps
-  extends Omit<UseTreeItemParameters, "rootRef">,
+  extends
+    Omit<UseTreeItemParameters, "rootRef">,
     Omit<React.HTMLAttributes<HTMLLIElement>, "onFocus"> {}
 
 interface NodeData {
