@@ -194,6 +194,27 @@ class TestEmailFolder:
         with pytest.raises(Exception):
             folder.get_email_by_id("nonexistent_id")
 
+    def test_total_returned_emails_matches_actual_count(self):
+        """Verify total_returned_emails equals the actual number of emails returned."""
+        folder = EmailFolder(EmailFolderName.INBOX)
+        for _ in range(10):
+            folder.add_email(create_email())
+
+        # Test various offset/limit combinations
+        test_cases = [
+            (0, 5),  # First 5 emails
+            (0, 10),  # All 10 emails
+            (5, 5),  # Last 5 emails
+            (8, 5),  # Only 2 emails available (offset 8, limit 5, but only 10 total)
+            (0, 3),  # First 3 emails
+        ]
+        for offset, limit in test_cases:
+            res = folder.get_emails(offset, limit)
+            assert res.total_returned_emails == len(res.emails), (
+                f"total_returned_emails ({res.total_returned_emails}) does not match "
+                f"len(emails) ({len(res.emails)}) for offset={offset}, limit={limit}"
+            )
+
 
 class TestEmailClientApp:
     def test_instantiate_email_client_app(self):

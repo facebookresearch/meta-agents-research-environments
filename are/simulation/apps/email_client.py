@@ -116,7 +116,7 @@ class EmailFolder:
         return ReturnedEmails(
             emails=self.emails[start_idx:end_idx],
             emails_range=(start_idx, end_idx),
-            total_returned_emails=end_idx - start_idx + 1,
+            total_returned_emails=end_idx - start_idx,
             total_emails=len(self.emails),
         )
 
