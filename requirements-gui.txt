@@ -22,4 +22,4 @@ wsproto==1.2.0
 
 # PDF preview functionality in GUI
 # Used in: simulation/gui/server/utils.py
-pypdf==6.0.0
+pypdf==6.9.1
