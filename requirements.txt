@@ -30,7 +30,7 @@ Jinja2==3.1.6
 
 # LLM abstraction layer for multiple providers
 # Used in: simulation/agents/llm/litellm/litellm_engine.py
-litellm==1.71.1
+litellm==1.83.0
 
 # Model Context Protocol for tool integration
 # Used in: simulation/apps/mcp/mcp_app.py, simulation/apps/mcp/server/are_simulation_mcp_server.py
