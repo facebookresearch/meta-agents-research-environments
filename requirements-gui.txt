@@ -11,7 +11,7 @@ starlette==0.47.2
 
 # GraphQL implementation (imported as 'strawberry', not 'strawberry_graphql')
 # Used in: simulation/gui/server/graphql/*.py files
-strawberry-graphql==0.275.5
+strawberry-graphql==0.312.3
 
 # ASGI server
 # Used in: simulation/gui/server/server.py
