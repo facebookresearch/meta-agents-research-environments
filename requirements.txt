@@ -42,7 +42,7 @@ numpy==2.2.6
 
 # Image processing for multimodal agents
 # Used in: simulation/agents/multimodal.py
-pillow==11.1.0
+pillow==12.2.0
 
 # Data processing for benchmark statistics and reporting
 # Used in: simulation/benchmark/report_stats.py, simulation/scenarios/validation_result.py
