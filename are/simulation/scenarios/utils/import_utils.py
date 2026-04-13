@@ -28,11 +28,13 @@ def import_scenario(scenario_file: str) -> Type[Scenario]:
 
     m_scenarios = inspect.getmembers(
         m,
-        lambda obj: inspect.isclass(obj)
-        and obj.__module__
-        == m.__name__  # ignore classes that are imported from other modules
-        and hasattr(obj, "scenario_id")
-        and obj.scenario_id,
+        lambda obj: (
+            inspect.isclass(obj)
+            and obj.__module__
+            == m.__name__  # ignore classes that are imported from other modules
+            and hasattr(obj, "scenario_id")
+            and obj.scenario_id
+        ),
     )
     if len(m_scenarios) != 1:
         raise ValueError(
