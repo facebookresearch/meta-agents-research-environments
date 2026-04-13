@@ -86,10 +86,8 @@ def load_scenarios_from_directory(
         if filename_with_ext.endswith(".json") and file_filter(filename_with_ext):
             filename = os.path.splitext(filename_with_ext)[0]
             scenario_id = f"scenario_{filename}"
-            scenarios[scenario_id] = (
-                lambda path=file, id=scenario_id, t=tags: load_and_setup_scenario(
-                    path, id, t
-                )
+            scenarios[scenario_id] = lambda path=file, id=scenario_id, t=tags: (
+                load_and_setup_scenario(path, id, t)
             )
             logger.debug(
                 f"Prepared to load scenario {filename_with_ext} into {scenario_id}"

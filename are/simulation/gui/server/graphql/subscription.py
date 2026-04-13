@@ -458,7 +458,9 @@ def get_world_logs_for_graphql(
         # Tool and action logs
         ToolCallLog: (
             AgentLogTypeForGraphQL.TOOL_CALL,
-            lambda log: log.get_content_for_llm(),  # Uses method to format tool call data
+            lambda log: (
+                log.get_content_for_llm()
+            ),  # Uses method to format tool call data
         ),
         # Final output logs
         FinalAnswerLog: (
