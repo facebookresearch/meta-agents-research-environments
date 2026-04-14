@@ -8,6 +8,11 @@
 
 Meta Agents Research Environments (ARE) is a platform designed to evaluate AI agents in dynamic, realistic scenarios. Unlike static benchmarks, this research platform introduces evolving environments where agents must adapt their strategies as new information becomes available, mirroring real-world challenges. In particular, ARE runs the [Gaia2](#example-gaia2-benchmark) benchmark, a follow-up to [Gaia](https://arxiv.org/abs/2311.12983), evaluating a broader range of agent capabilities.
 
+![Gaia2 CLI Announcement](gaia2-cli/assets/announcement_banner.png)
+
+Looking for the container-based Gaia2-CLI benchmark stack? Start with
+[gaia2-cli](gaia2-cli).
+
 ## Table of Contents
 
 - [Background](#background)
@@ -201,9 +206,9 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 If you use Meta Agents Research Environments in your work, please cite:
 
 ```bibtex
-@misc{andrews2025arescalingagentenvironments,
+@misc{froger2025arescalingagentenvironments,
       title={ARE: Scaling Up Agent Environments and Evaluations},
-      author={Pierre Andrews and Amine Benhalloum and Gerard Moreno-Torres Bertran and Matteo Bettini and Amar Budhiraja and Ricardo Silveira Cabral and Virginie Do and Romain Froger and Emilien Garreau and Jean-Baptiste Gaya and Hugo Laurençon and Maxime Lecanu and Kunal Malkan and Dheeraj Mekala and Pierre Ménard and Grégoire Mialon and Ulyana Piterbarg and Mikhail Plekhanov and Mathieu Rita and Andrey Rusakov and Thomas Scialom and Vladislav Vorotilov and Mengjue Wang and Ian Yu},
+      author={Romain Froger and Pierre Andrews and Matteo Bettini and Amar Budhiraja and Ricardo Silveira Cabral and Virginie Do and Emilien Garreau and Jean-Baptiste Gaya and Hugo Laurençon and Maxime Lecanu and Kunal Malkan and Dheeraj Mekala and Pierre Ménard and Gerard Moreno-Torres Bertran and Ulyana Piterbarg and Mikhail Plekhanov and Mathieu Rita and Andrey Rusakov and Vladislav Vorotilov and Mengjue Wang and Ian Yu and Amine Benhalloum and Grégoire Mialon and Thomas Scialom},
       year={2025},
       eprint={2509.17158},
       archivePrefix={arXiv},

@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gaia2-cli"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["click>=8.0", "gaia2-core"]
+
+[project.scripts]
+calendar = "gaia2_cli.apps.calendar:cli"
+contacts = "gaia2_cli.apps.contacts:cli"
+emails = "gaia2_cli.apps.email:cli"
+messages = "gaia2_cli.apps.messages:cli"
+chats = "gaia2_cli.apps.chats:cli"
+rent-a-flat = "gaia2_cli.apps.apartment:cli"
+city = "gaia2_cli.apps.city:cli"
+cabs = "gaia2_cli.apps.cab:cli"
+shopping = "gaia2_cli.apps.shopping:cli"
+cloud-drive = "gaia2_cli.apps.files:cli"
+gaia2-init = "gaia2_cli.init_cmd:main"
+gaia2-eventd = "gaia2_cli.daemon.eventd:main"
+gaia2-replay = "gaia2_cli.daemon.replay:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+judge = ["litellm>=1.0"]
+
+[tool.setuptools.packages.find]
+include = ["gaia2_cli*"]
+
+[tool.uv.sources]
+gaia2-core = { path = "../core", editable = true }

@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 env:
-  WORKING_DIR: ${{ inputs.use-artifact != '' && format('{0}/oss-content', inputs.working-directory) || inputs.working-directory }}
+  WORKING_DIR: ${{ (inputs.use-artifact != '' && format('{0}/oss-content', inputs.working-directory)) || inputs.working-directory || '.' }}
 
 jobs:
   lock-file:
@@ -145,3 +145,37 @@ jobs:
       - name: Run Python tests
         working-directory: ${{ env.WORKING_DIR }}
         run: uv run --extra dev --extra gui pytest -v --full-trace --pyargs are.simulation
+
+  gaia2-cli-cli-tests:
+    runs-on: ubuntu-latest
+    needs: [lock-file]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Download artifact
+        if: inputs.use-artifact != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.use-artifact }}
+          path: ${{ inputs.working-directory }}/oss-content
+      - uses: ./.github/actions/setup-python-uv
+      - name: Run gaia2-cli CLI tests
+        working-directory: ${{ env.WORKING_DIR }}/gaia2-cli/cli
+        run: uv run --locked --extra dev pytest -v tests
+
+  gaia2-cli-runner-tests:
+    runs-on: ubuntu-latest
+    needs: [lock-file]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Download artifact
+        if: inputs.use-artifact != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.use-artifact }}
+          path: ${{ inputs.working-directory }}/oss-content
+      - uses: ./.github/actions/setup-python-uv
+      - name: Run gaia2-cli runner tests
+        working-directory: ${{ env.WORKING_DIR }}/gaia2-cli/runner
+        run: uv run --locked --extra dev pytest -v tests
