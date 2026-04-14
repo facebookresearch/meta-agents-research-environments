@@ -1,0 +1,25 @@
+# OpenClaw + direct Anthropic Sonnet 4.6 on the public search split, pass@1.
+
+[target]
+dataset = "meta-agents-research-environments/gaia2-cli"
+splits = ["search"]
+
+[agent]
+image = "localhost/gaia2-oc:latest"
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+api_key_env = "ANTHROPIC_API_KEY"
+thinking = "high"
+
+[judge]
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+api_key_env = "ANTHROPIC_API_KEY"
+
+[run]
+timeout = 900
+health_timeout = 180
+concurrency = 10
+pass_at = 1
+output_dir = "/tmp/gaia2_openclaw_quickstart"
+log_level = "INFO"

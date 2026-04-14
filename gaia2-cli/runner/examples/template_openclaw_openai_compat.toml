@@ -1,0 +1,28 @@
+# Template: OpenClaw + custom OpenAI chat-completions-compatible endpoint.
+# Edit the model, base URL, and API key env var values before running.
+
+[target]
+dataset = "meta-agents-research-environments/gaia2-cli"
+splits = "all"
+
+[agent]
+image = "localhost/gaia2-oc:latest"
+provider = "openai-compat"
+model = "your-agent-model"
+api_key_env = "OPENAI_COMPAT_API_KEY"
+base_url = "https://api.example.com/v1"
+thinking = "high"
+
+[judge]
+provider = "openai-compat"
+model = "your-judge-model"
+api_key_env = "OPENAI_COMPAT_API_KEY"
+base_url = "https://api.example.com/v1"
+
+[run]
+timeout = 900
+health_timeout = 180
+concurrency = 20
+pass_at = 1
+output_dir = "/tmp/gaia2_openclaw_openai_compat_template"
+log_level = "INFO"

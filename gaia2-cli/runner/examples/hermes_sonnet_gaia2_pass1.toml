@@ -1,0 +1,25 @@
+# Hermes + Anthropic Sonnet 4.6, pass@1 on the public HuggingFace dataset.
+
+[target]
+dataset = "meta-agents-research-environments/gaia2-cli"
+splits = "all"
+
+[agent]
+image = "localhost/gaia2-hermes:latest"
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+api_key_env = "ANTHROPIC_API_KEY"
+thinking = "high"
+
+[judge]
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+api_key_env = "ANTHROPIC_API_KEY"
+
+[run]
+timeout = 900
+health_timeout = 180
+concurrency = 20
+pass_at = 1
+output_dir = "/tmp/gaia2_hermes_sonnet_pass1"
+log_level = "INFO"

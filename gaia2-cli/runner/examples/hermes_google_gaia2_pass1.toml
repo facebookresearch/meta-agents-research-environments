@@ -1,0 +1,30 @@
+# Hermes + Google AI Studio Gemini 3.1 Pro Preview, pass@1 on the public
+# HuggingFace dataset.
+#
+# Hermes upstream names the native Google provider `gemini`. The agent uses
+# the direct AI Studio OpenAI-compatible endpoint here.
+
+[target]
+dataset = "meta-agents-research-environments/gaia2-cli"
+splits = "all"
+
+[agent]
+image = "localhost/gaia2-hermes:latest"
+provider = "gemini"
+model = "gemini-3.1-pro-preview"
+base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
+api_key_env = "GOOGLE_API_KEY"
+thinking = "high"
+
+[judge]
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+api_key_env = "ANTHROPIC_API_KEY"
+
+[run]
+timeout = 900
+health_timeout = 180
+concurrency = 20
+pass_at = 1
+output_dir = "/tmp/gaia2_hermes_google_pass1"
+log_level = "INFO"
