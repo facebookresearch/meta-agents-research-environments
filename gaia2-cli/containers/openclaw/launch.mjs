@@ -40,7 +40,7 @@ function traceLog(url, init, status, rawText, latencyMs) {
     latency_ms: latencyMs,
     http_status: status,
     request: requestBody,
-    raw_response: rawText.length > 50000 ? rawText.slice(0, 50000) + "...[truncated]" : rawText,
+    raw_response: rawText,
   };
 
   try {
@@ -123,14 +123,18 @@ globalThis.fetch = async function(url, init) {
     try {
       const reqBody = JSON.parse(init.body);
       let changed = false;
-      if (reqBody.stream) {
+      const isOpenRouter = urlStr.includes("openrouter.ai");
+      if (reqBody.stream && !isOpenRouter) {
         reqBody.stream = false;
         changed = true;
       }
       // Best-effort propagation of the container thinking level to generic
       // OpenAI-compatible chat-completions providers.
       const effort = process.env.REASONING_EFFORT || process.env.THINKING;
-      if (effort && effort !== "none" && effort !== "off" && !reqBody.reasoning) {
+      if (isOpenRouter && effort && effort !== "none" && effort !== "off") {
+        reqBody.reasoning = { enabled: true };
+        changed = true;
+      } else if (effort && effort !== "none" && effort !== "off" && !reqBody.reasoning) {
         reqBody.reasoning = { effort };
         changed = true;
       }
