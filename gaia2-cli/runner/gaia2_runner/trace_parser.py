@@ -1076,7 +1076,7 @@ def normalize_entry(entry: dict[str, Any]) -> dict[str, Any]:
     result = dict(entry)
 
     # Detect format: SSE vs plain JSON
-    is_sse = "data: " in raw[:200]
+    is_sse = "data: " in raw[:2000] or raw.lstrip().startswith(": ")
 
     if is_sse:
         events = parse_sse_events(raw)
