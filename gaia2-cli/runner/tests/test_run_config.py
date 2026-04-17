@@ -356,6 +356,46 @@ output_dir = "out"
     assert "Splits: search" in result.output
 
 
+def test_run_config_hf_dataset_respects_selected_splits_with_cached_extra_splits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from gaia2_runner import hf_dataset
+
+    _write_scenario(tmp_path / "hf_cache" / "search" / "s1.json", "s1")
+    _write_scenario(tmp_path / "hf_cache" / "time" / "s2.json", "s2")
+    monkeypatch.setattr(
+        hf_dataset,
+        "download_hf_dataset",
+        lambda dataset_id, splits=None: str(tmp_path / "hf_cache"),
+    )
+
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+dataset = "meta-agents-research-environments/gaia2-cli"
+splits = ["time"]
+
+[agent]
+image = "localhost/gaia2-oracle:latest"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+
+[run]
+output_dir = "out"
+""")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["run-config", "--config", str(config_path), "--dry-run"]
+    )
+
+    assert result.exit_code == 0
+    assert "Splits: time" in result.output
+    assert "Resolved scenarios: 1" in result.output
+
+
 def test_run_config_dry_run_shows_retry_override(tmp_path: Path) -> None:
     _write_scenario(tmp_path / "dataset" / "execution" / "s1.json", "s1")
 

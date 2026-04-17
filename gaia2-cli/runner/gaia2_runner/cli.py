@@ -1506,13 +1506,42 @@ def _load_run_config_dataset_scenarios(
 
         split_list = list(config.target.splits) if config.target.splits else None
         cache_dir = download_hf_dataset(config.target.dataset, splits=split_list)
-        scenario_paths, resolved_root, _ = _load_dataset_scenarios(
-            cache_dir,
-            config.target.limit,
-            recursive=True,
-            subset=config.target.subset_manifest,
-        )
-        return scenario_paths, Path(cache_dir), None, Path(cache_dir)
+        dataset_root = Path(cache_dir)
+
+        if not config.target.splits:
+            scenario_paths, resolved_root, _ = _load_dataset_scenarios(
+                cache_dir,
+                config.target.limit,
+                recursive=True,
+                subset=config.target.subset_manifest,
+            )
+            return scenario_paths, resolved_root, None, dataset_root
+
+        missing_splits = [
+            split for split in config.target.splits if not (dataset_root / split).is_dir()
+        ]
+        if missing_splits:
+            raise click.UsageError(
+                "Missing split directories under dataset root: "
+                + ", ".join(str(dataset_root / split) for split in missing_splits)
+            )
+
+        scenario_paths: list[Path] = []
+        for split in config.target.splits:
+            split_dir = dataset_root / split
+            split_paths, _, _ = _load_dataset_scenarios(
+                str(split_dir),
+                None,
+                recursive=config.target.recursive,
+                subset=config.target.subset_manifest,
+            )
+            scenario_paths.extend(split_paths)
+
+        scenario_paths = sorted(scenario_paths)
+        if config.target.limit is not None:
+            scenario_paths = scenario_paths[: config.target.limit]
+
+        return scenario_paths, dataset_root, None, dataset_root
 
     if not config.target.dataset_root:
         raise click.UsageError("Dataset config is missing [target].dataset_root")
