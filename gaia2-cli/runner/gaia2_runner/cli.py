@@ -1518,7 +1518,9 @@ def _load_run_config_dataset_scenarios(
             return scenario_paths, resolved_root, None, dataset_root
 
         missing_splits = [
-            split for split in config.target.splits if not (dataset_root / split).is_dir()
+            split
+            for split in config.target.splits
+            if not (dataset_root / split).is_dir()
         ]
         if missing_splits:
             raise click.UsageError(
