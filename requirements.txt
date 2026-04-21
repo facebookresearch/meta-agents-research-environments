@@ -54,7 +54,7 @@ pydantic==2.10.6
 
 # Environment variable loading
 # Used in: simulation/config.py, simulation/scenarios/scenario_hf_demo_mcp/scenario.py, simulation/scenarios/utils/caching.py
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 
 # Fuzzy search in messaging app
 # Used in: simulation/apps/messaging_v2.py
