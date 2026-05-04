@@ -53,7 +53,7 @@
     "react-relay": "^20.1.1",
     "react-resizable": "^3.0.5",
     "relay-runtime": "^20.0.0",
-    "uuid": "^13.0.0",
+    "uuid": "^14.0.0",
     "vite-plugin-relay": "^2.1.0"
   },
   "devDependencies": {
