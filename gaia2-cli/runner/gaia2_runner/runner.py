@@ -40,6 +40,9 @@ DEFAULT_HEALTH_TIMEOUT = 120
 
 # Container path where the LLM trace is written (read back by _extract_trace_file)
 _CONTAINER_TRACE_PATH = "/tmp/trace.jsonl"
+_CONTAINER_DAEMON_STATUS_PATH = "/var/gaia2/state/daemon_status.json"
+_TERMINAL_DAEMON_STATUSES = frozenset({"complete", "stopped", "error"})
+_POLL_FAILURE_SHORTCIRCUIT_THRESHOLD = 5
 
 
 class ContainerRunner:
@@ -100,6 +103,7 @@ class ContainerRunner:
             Dict with keys: scenario_id, success, reward, num_agent_events,
             num_oracle_events, agent_response, error (if any).
         """
+        self._last_daemon_status = None
         scenario_path, scenario_data, scenario_id = self._load_scenario(
             scenario_json_path
         )
@@ -190,6 +194,7 @@ class ContainerRunner:
             agent_response, daemon_status = self._poll_for_response(
                 adapter_url,
                 timeout=effective_timeout,
+                container_id=container_id,
             )
             poll_elapsed = time.monotonic() - poll_start
             timed_out = poll_elapsed >= effective_timeout - 1
@@ -204,7 +209,15 @@ class ContainerRunner:
             if container_id and artifact_dir:
                 self._extract_daemon_logs(container_id, artifact_dir)
 
-            daemon_status = self._last_daemon_status or {}
+            daemon_status_data = self._last_daemon_status
+            if daemon_status_data is None and artifact_dir:
+                daemon_status_data = self._read_extracted_daemon_status(artifact_dir)
+                if daemon_status_data is not None:
+                    self._last_daemon_status = daemon_status_data
+                    if daemon_status_data.get("last_response") and not agent_response:
+                        agent_response = daemon_status_data["last_response"]
+
+            daemon_status = daemon_status_data or {}
             daemon_judgment = daemon_status.get("judgment")
             if daemon_judgment is not None:
                 success = daemon_judgment.get("success", False)
@@ -240,7 +253,10 @@ class ContainerRunner:
                         f"({num_events} tool calls, idle timeout or agent stuck)"
                     )
                 elif ds == "unknown":
-                    error_msg = "No daemon status — container may lack judge support"
+                    error_msg = (
+                        "Adapter /status endpoint unreachable before scenario end "
+                        "and no daemon_status.json recovered from container"
+                    )
                 else:
                     error_msg = (
                         f"No judgment (daemon status: {ds}, {num_events} agent events)"
@@ -530,6 +546,7 @@ class ContainerRunner:
         timeout: int = DEFAULT_RESPONSE_TIMEOUT,
         interval: float = 2.0,
         activity_timeout: float = 600.0,
+        container_id: str | None = None,
     ) -> tuple[str | None, str]:
         """Poll GET /status until the daemon reports scenario completion.
 
@@ -550,43 +567,73 @@ class ContainerRunner:
         last_num_events = -1
         last_response: str | None = None
         daemon_status = "unknown"
+        consecutive_poll_failures = 0
+
+        def observe_status(data: dict[str, Any], *, source: str) -> str:
+            nonlocal activity_deadline
+            nonlocal daemon_status
+            nonlocal last_num_events
+            nonlocal last_response
+            nonlocal last_turn
+
+            daemon_status = data.get("status", "waiting")
+            turn = data.get("turn", 0)
+            nb_turns = data.get("nb_turns", 1)
+            num_events = data.get("num_events", 0)
+
+            if turn != last_turn or num_events != last_num_events:
+                last_turn = turn
+                last_num_events = num_events
+                activity_deadline = time.monotonic() + activity_timeout
+                logger.info(
+                    "Daemon status from %s: %s (turn %s/%s, events=%s)",
+                    source,
+                    daemon_status,
+                    turn,
+                    nb_turns,
+                    num_events,
+                )
+
+            if data.get("last_response"):
+                last_response = data["last_response"]
+
+            if daemon_status in _TERMINAL_DAEMON_STATUSES:
+                logger.info(
+                    "Daemon finished from %s: status=%s turn=%s/%s",
+                    source,
+                    daemon_status,
+                    turn,
+                    nb_turns,
+                )
+                self._last_daemon_status = data
+
+            return daemon_status
 
         while time.monotonic() < deadline:
             try:
                 resp = self._local_session.get(f"{adapter_url}/status", timeout=5)
                 data = resp.json()
-                daemon_status = data.get("status", "waiting")
-                turn = data.get("turn", 0)
-                nb_turns = data.get("nb_turns", 1)
-                num_events = data.get("num_events", 0)
-
-                if turn != last_turn or num_events != last_num_events:
-                    last_turn = turn
-                    last_num_events = num_events
-                    activity_deadline = time.monotonic() + activity_timeout
-                    logger.info(
-                        "Daemon status: %s (turn %d/%d, events=%d)",
-                        daemon_status,
-                        turn,
-                        nb_turns,
-                        num_events,
-                    )
-
-                if data.get("last_response"):
-                    last_response = data["last_response"]
-
-                if daemon_status in ("complete", "stopped", "error"):
-                    logger.info(
-                        "Daemon finished: status=%s turn=%d/%d",
-                        daemon_status,
-                        turn,
-                        nb_turns,
-                    )
-                    self._last_daemon_status = data
+                consecutive_poll_failures = 0
+                daemon_status = observe_status(data, source="adapter")
+                if daemon_status in _TERMINAL_DAEMON_STATUSES:
                     return last_response, daemon_status
 
             except Exception as exc:
+                consecutive_poll_failures += 1
                 logger.debug("Status poll error: %s", exc)
+                should_check_container = container_id is not None and (
+                    consecutive_poll_failures % _POLL_FAILURE_SHORTCIRCUIT_THRESHOLD
+                    == 0
+                )
+                if should_check_container:
+                    data = self._read_daemon_status_from_container(container_id)
+                    if data is not None:
+                        daemon_status = observe_status(
+                            data,
+                            source="container file",
+                        )
+                        if daemon_status in _TERMINAL_DAEMON_STATUSES:
+                            return last_response, daemon_status
 
             # Activity timeout — daemon may be dead
             if time.monotonic() > activity_deadline:
@@ -599,6 +646,58 @@ class ContainerRunner:
 
         logger.warning("Timed out waiting for daemon completion after %ds", timeout)
         return last_response, "timeout"
+
+    @staticmethod
+    def _read_daemon_status_file(path: Path) -> dict[str, Any] | None:
+        """Read a daemon_status.json file if it exists and contains a JSON object."""
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.debug("Could not read daemon status from %s: %s", path, exc)
+            return None
+        if not isinstance(data, dict):
+            logger.debug("Ignoring daemon status from %s: expected object", path)
+            return None
+        return data
+
+    def _read_daemon_status_from_container(
+        self,
+        container_id: str,
+    ) -> dict[str, Any] | None:
+        """Copy daemon_status.json out of the container and parse it."""
+        with tempfile.NamedTemporaryFile(
+            mode="r",
+            suffix=".json",
+            prefix="daemon-status-",
+            delete=False,
+        ) as tmp:
+            tmp_path = Path(tmp.name)
+        try:
+            self.launcher.copy_from(
+                container_id,
+                _CONTAINER_DAEMON_STATUS_PATH,
+                str(tmp_path),
+            )
+            return self._read_daemon_status_file(tmp_path)
+        except Exception as exc:
+            logger.debug(
+                "Could not copy daemon status from %s: %s",
+                container_id[:12],
+                exc,
+            )
+            return None
+        finally:
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+
+    def _read_extracted_daemon_status(
+        self,
+        artifact_dir: Path,
+    ) -> dict[str, Any] | None:
+        """Read daemon_status.json already extracted into an artifact dir."""
+        return self._read_daemon_status_file(artifact_dir / "daemon_status.json")
 
     @staticmethod
     def _extract_message_text(raw: Any) -> str:
