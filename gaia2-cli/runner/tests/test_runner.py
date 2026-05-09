@@ -509,6 +509,152 @@ class TestScenarioTimeout:
         assert captured_timeout["value"] == 390
 
 
+class TestDaemonStatusFallback:
+    def test_http_status_success_does_not_copy_daemon_status(self) -> None:
+        launcher = _mock_launcher()
+        runner = _make_runner(launcher)
+        response = MagicMock()
+        response.json.return_value = {
+            "status": "complete",
+            "turn": 1,
+            "nb_turns": 1,
+            "num_events": 3,
+            "last_response": "done",
+            "judgment": {"success": True},
+        }
+        runner._local_session.get = MagicMock(return_value=response)
+
+        agent_response, daemon_status = runner._poll_for_response(
+            "http://127.0.0.1:8090",
+            timeout=1,
+            interval=0,
+            container_id="container-123",
+        )
+
+        assert agent_response == "done"
+        assert daemon_status == "complete"
+        assert runner._last_daemon_status == response.json.return_value
+        launcher.copy_from.assert_not_called()
+
+    def test_polling_falls_back_to_container_daemon_status(self) -> None:
+        launcher = _mock_launcher()
+
+        def fake_copy_from(container_id: str, src: str, dst: str) -> None:
+            Path(dst).write_text(
+                json.dumps(
+                    {
+                        "status": "complete",
+                        "turn": 1,
+                        "nb_turns": 1,
+                        "num_events": 4,
+                        "last_response": "45",
+                        "judgment": {"success": True},
+                    }
+                )
+            )
+
+        launcher.copy_from.side_effect = fake_copy_from
+        runner = _make_runner(launcher)
+        runner._local_session.get = MagicMock(side_effect=ConnectionError("refused"))
+
+        agent_response, daemon_status = runner._poll_for_response(
+            "http://127.0.0.1:8090",
+            timeout=5,
+            interval=0,
+            container_id="container-123",
+        )
+
+        assert agent_response == "45"
+        assert daemon_status == "complete"
+        assert runner._last_daemon_status["judgment"]["success"] is True
+        assert runner._local_session.get.call_count == 5
+        launcher.copy_from.assert_called_once()
+
+    def test_run_scenario_uses_extracted_daemon_status_fallback(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        output_dir = tmp_path / "out"
+        runner = _make_runner()
+
+        def fake_extract_daemon_logs(container_id: str, artifact_dir: Path) -> None:
+            (artifact_dir / "daemon_status.json").write_text(
+                json.dumps(
+                    {
+                        "status": "complete",
+                        "turn": 1,
+                        "nb_turns": 1,
+                        "last_response": "recovered response",
+                        "judgment": {"success": True, "failure_reason": ""},
+                    }
+                )
+            )
+
+        with (
+            patch.object(
+                runner,
+                "_poll_for_response",
+                return_value=(None, "activity_timeout"),
+            ),
+            patch.object(runner, "_collect_events", return_value=("", None)),
+            patch.object(
+                runner,
+                "_extract_daemon_logs",
+                side_effect=fake_extract_daemon_logs,
+            ),
+            patch.object(runner, "_extract_trace_file"),
+        ):
+            result = runner.run_scenario(
+                str(scenario_path),
+                output_dir=str(output_dir),
+            )
+
+        assert result["success"] is True
+        assert result["reward"] == 1.0
+        assert result["agent_response"] == "recovered response"
+        assert result["daemon_status"]["judgment"]["success"] is True
+
+    def test_malformed_daemon_status_file_is_ignored(self, tmp_path: Path) -> None:
+        runner = _make_runner()
+        malformed = tmp_path / "daemon_status.json"
+        malformed.write_text("{not-json")
+        missing = tmp_path / "missing.json"
+
+        assert runner._read_daemon_status_file(malformed) is None
+        assert runner._read_daemon_status_file(missing) is None
+
+    def test_run_scenario_resets_stale_daemon_status(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        runner = _make_runner()
+        runner._last_daemon_status = {
+            "status": "complete",
+            "judgment": {"success": True},
+        }
+
+        with (
+            patch.object(
+                runner,
+                "_poll_for_response",
+                return_value=("fresh response", "activity_timeout"),
+            ),
+            patch.object(
+                runner,
+                "_collect_events",
+                return_value=("", "fresh response"),
+            ),
+            patch.object(runner, "_extract_trace_file"),
+        ):
+            result = runner.run_scenario(str(scenario_path))
+
+        assert result["success"] is None
+        assert result["agent_response"] == "fresh response"
+        assert result["daemon_status"] == {}
+
+
 class TestBuildContainerEnv:
     def test_uses_required_judge_config_without_judge_type(self) -> None:
         runner = _make_runner()
