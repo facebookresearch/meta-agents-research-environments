@@ -14,6 +14,7 @@ import logging
 import os
 import socket
 import subprocess
+import sys
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -391,6 +392,31 @@ class LocalLauncher(ContainerLauncher):
             args, capture_output=True, text=True, check=True, **kwargs
         )
 
+    def _is_podman_runtime(self) -> bool:
+        """Return whether this launcher invokes a Podman CLI."""
+        return any(
+            os.path.basename(part) in {"podman", "podman-remote"} for part in self._rt
+        )
+
+    def _should_publish_adapter_port(
+        self,
+        *,
+        network: str,
+        adapter_port: int | None,
+    ) -> bool:
+        """Use port publishing for local Podman on macOS.
+
+        Podman's ``--network=host`` is the Podman VM's host namespace on
+        macOS, not the macOS host. Publishing the adapter port is what makes
+        ``127.0.0.1:<port>`` reachable from the runner process.
+        """
+        return (
+            sys.platform == "darwin"
+            and self._is_podman_runtime()
+            and network == "host"
+            and adapter_port is not None
+        )
+
     def launch(
         self,
         image: str,
@@ -406,22 +432,28 @@ class LocalLauncher(ContainerLauncher):
         gateway_port: int | None = None,
     ) -> str:
         container_name = self._container_name(scenario_json_path)
+        publish_adapter_port = self._should_publish_adapter_port(
+            network=network,
+            adapter_port=adapter_port,
+        )
 
-        cmd = [
-            *self._rt,
-            "run",
-            "-d",
-            f"--name={container_name}",
-            f"--network={network}",
-            # Workaround for crun seccomp cache permission errors on
-            # some kernels (linkat EPERM in seccomp bpf setup).
-            "--security-opt",
-            "seccomp=unconfined",
-            "-v",
-            f"{scenario_json_path}:/var/gaia2/custom_scenario.json:ro",
-            "--entrypoint",
-            "bash",
-        ]
+        cmd = [*self._rt, "run", "-d", f"--name={container_name}"]
+        if publish_adapter_port:
+            cmd.extend(["-p", f"127.0.0.1:{adapter_port}:{adapter_port}"])
+        else:
+            cmd.append(f"--network={network}")
+        cmd.extend(
+            [
+                # Workaround for crun seccomp cache permission errors on
+                # some kernels (linkat EPERM in seccomp bpf setup).
+                "--security-opt",
+                "seccomp=unconfined",
+                "-v",
+                f"{scenario_json_path}:/var/gaia2/custom_scenario.json:ro",
+                "--entrypoint",
+                "bash",
+            ]
+        )
         for volume in extra_volumes or ():
             cmd.extend(["-v", volume])
 

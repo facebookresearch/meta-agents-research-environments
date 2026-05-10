@@ -51,6 +51,100 @@ def test_local_launcher_adds_extra_volumes(
     assert "/tmp/extra:/tmp/extra" in captured["args"]
 
 
+def test_local_launcher_publishes_adapter_port_for_podman_on_macos(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    scenario_path = tmp_path / "scenario.json"
+    scenario_path.write_text("{}")
+    launcher = LocalLauncher(runtime="podman")
+    captured: dict[str, list[str]] = {}
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured["args"] = args
+        return subprocess.CompletedProcess(args, 0, stdout="container-123\n", stderr="")
+
+    monkeypatch.setattr("gaia2_runner.launcher.sys.platform", "darwin")
+    monkeypatch.delenv("GAIA2_PROXY_RELAY_URL", raising=False)
+    monkeypatch.delenv("GAIA2_CA_BUNDLE", raising=False)
+    monkeypatch.setattr("gaia2_runner.launcher.os.path.isfile", lambda _: False)
+    monkeypatch.setattr(launcher, "_run", fake_run)
+
+    launcher.launch(
+        "localhost/gaia2-oracle:latest",
+        str(scenario_path),
+        adapter_port=8123,
+        gateway_port=18790,
+    )
+
+    args = captured["args"]
+    env = _env_map(args)
+    assert "--network=host" not in args
+    assert "-p" in args
+    assert "127.0.0.1:8123:8123" in args
+    assert env["GAIA2_ADAPTER_PORT"] == "8123"
+    assert env["OPENCLAW_GATEWAY_PORT"] == "18790"
+    assert env["OPENCLAW_GATEWAY_URL"] == "ws://127.0.0.1:18790"
+
+
+def test_local_launcher_keeps_host_network_for_podman_on_linux(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    scenario_path = tmp_path / "scenario.json"
+    scenario_path.write_text("{}")
+    launcher = LocalLauncher(runtime="podman")
+    captured: dict[str, list[str]] = {}
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured["args"] = args
+        return subprocess.CompletedProcess(args, 0, stdout="container-123\n", stderr="")
+
+    monkeypatch.setattr("gaia2_runner.launcher.sys.platform", "linux")
+    monkeypatch.delenv("GAIA2_PROXY_RELAY_URL", raising=False)
+    monkeypatch.delenv("GAIA2_CA_BUNDLE", raising=False)
+    monkeypatch.setattr("gaia2_runner.launcher.os.path.isfile", lambda _: False)
+    monkeypatch.setattr(launcher, "_run", fake_run)
+
+    launcher.launch(
+        "localhost/gaia2-oracle:latest",
+        str(scenario_path),
+        adapter_port=8123,
+    )
+
+    args = captured["args"]
+    assert "--network=host" in args
+    assert "-p" not in args
+
+
+def test_local_launcher_keeps_explicit_network_for_podman_on_macos(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    scenario_path = tmp_path / "scenario.json"
+    scenario_path.write_text("{}")
+    launcher = LocalLauncher(runtime="podman")
+    captured: dict[str, list[str]] = {}
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured["args"] = args
+        return subprocess.CompletedProcess(args, 0, stdout="container-123\n", stderr="")
+
+    monkeypatch.setattr("gaia2_runner.launcher.sys.platform", "darwin")
+    monkeypatch.delenv("GAIA2_PROXY_RELAY_URL", raising=False)
+    monkeypatch.delenv("GAIA2_CA_BUNDLE", raising=False)
+    monkeypatch.setattr("gaia2_runner.launcher.os.path.isfile", lambda _: False)
+    monkeypatch.setattr(launcher, "_run", fake_run)
+
+    launcher.launch(
+        "localhost/gaia2-oracle:latest",
+        str(scenario_path),
+        network="bridge",
+        adapter_port=8123,
+    )
+
+    args = captured["args"]
+    assert "--network=bridge" in args
+    assert "-p" not in args
+
+
 def test_local_launcher_uses_configured_proxy_relay(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
