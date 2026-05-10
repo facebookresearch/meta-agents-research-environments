@@ -58,6 +58,7 @@ SPLIT_DISPLAY_ORDER_INDEX = {
     split_name: index for index, split_name in enumerate(SPLIT_DISPLAY_ORDER)
 }
 DATASET_PARTITION_DIR_NAMES = frozenset({"train", "validation", "test"})
+PORT_ALLOCATION_ATTEMPTS = 1000
 
 
 def _default_env_file() -> Path:
@@ -949,9 +950,27 @@ def _save_dataset_run_config(
     )
 
 
-def _allocate_ports() -> tuple[int, int]:
-    """Allocate unique ephemeral adapter and gateway ports."""
-    return _allocate_free_port(), _allocate_free_port()
+def _allocate_reserved_port(reserved_ports: set[int]) -> int:
+    """Allocate an ephemeral port not already reserved by this runner process."""
+    for _ in range(PORT_ALLOCATION_ATTEMPTS):
+        port = _allocate_free_port()
+        if port not in reserved_ports:
+            reserved_ports.add(port)
+            return port
+
+    raise RuntimeError("Unable to allocate a unique free port")
+
+
+def _allocate_ports(reserved_ports: set[int] | None = None) -> tuple[int, int]:
+    """Allocate unique ephemeral adapter and gateway ports.
+
+    ``reserved_ports`` guards concurrent batches from handing the same released
+    ephemeral port to multiple queued containers in one runner invocation.
+    """
+    ports = reserved_ports if reserved_ports is not None else set()
+    adapter_port = _allocate_reserved_port(ports)
+    gateway_port = _allocate_reserved_port(ports)
+    return adapter_port, gateway_port
 
 
 def _run_scenarios_sequential(
@@ -1010,10 +1029,11 @@ def _run_scenarios_concurrent(
         execution_config.launcher_type,
     )
 
+    reserved_ports: set[int] = set()
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = {}
         for scenario_path in scenario_paths:
-            adapter_port, gateway_port = _allocate_ports()
+            adapter_port, gateway_port = _allocate_ports(reserved_ports)
             logger.info(
                 "Submitting %s (adapter=%d, gateway=%d)",
                 scenario_path.name,
@@ -1208,10 +1228,11 @@ def _run_interleaved_passes(
         )
         return run_number, result
 
+    reserved_ports: set[int] = set()
     with ThreadPoolExecutor(max_workers=effective_concurrency) as pool:
         futures = {}
         for scenario_path, run_number in all_tasks:
-            adapter_port, gateway_port = _allocate_ports()
+            adapter_port, gateway_port = _allocate_ports(reserved_ports)
             logger.info(
                 "Submitting run_%d/%s (adapter=%d, gateway=%d)",
                 run_number,
