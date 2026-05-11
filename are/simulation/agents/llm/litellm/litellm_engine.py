@@ -103,7 +103,7 @@ Action:
             provider = (
                 self.model_config.provider
                 if self.model_config.provider != "local"
-                else None
+                else "hosted_vllm"
             )
 
             response = completion(
