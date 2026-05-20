@@ -20,10 +20,11 @@ CLI_CONTAINERS := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 GAIA2_CLI_IMAGE     := localhost/gaia2-cli:local
 GAIA2_OC_IMAGE      := localhost/gaia2-oc:latest
 GAIA2_HERMES_IMAGE  := localhost/gaia2-hermes:latest
+GAIA2_MINI_IMAGE    := localhost/gaia2-mini-swe:latest
 GAIA2_ORACLE_IMAGE  := localhost/gaia2-oracle:latest
 
 ALL_IMAGES := $(GAIA2_CLI_IMAGE) $(GAIA2_OC_IMAGE) \
-              $(GAIA2_HERMES_IMAGE) $(GAIA2_ORACLE_IMAGE)
+              $(GAIA2_HERMES_IMAGE) $(GAIA2_MINI_IMAGE) $(GAIA2_ORACLE_IMAGE)
 
 # ── Build config ───────────────────────────────────────────────────────
 # Override PODMAN_BUILD / PODMAN_SAVE when your environment needs wrappers
@@ -57,15 +58,15 @@ endef
 
 # ── Targets ────────────────────────────────────────────────────────────
 
-.PHONY: all gaia2-cli gaia2-oc gaia2-hermes gaia2-oracle \
-        verify verify-gaia2-cli verify-gaia2-oc verify-gaia2-hermes verify-gaia2-oracle \
+.PHONY: all gaia2-cli gaia2-oc gaia2-hermes gaia2-mini-swe gaia2-oracle \
+        verify verify-gaia2-cli verify-gaia2-oc verify-gaia2-hermes verify-gaia2-mini-swe verify-gaia2-oracle \
         test list stop clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
 
-all: gaia2-oc gaia2-hermes gaia2-oracle ## Build all images
+all: gaia2-oc gaia2-hermes gaia2-mini-swe gaia2-oracle ## Build all images
 
 # ── Base image ─────────────────────────────────────────────────────────
 
@@ -95,6 +96,14 @@ gaia2-hermes: gaia2-cli ## Build gaia2-hermes image
 		-t $(GAIA2_HERMES_IMAGE) .
 	$(call copy-to-user,$(GAIA2_HERMES_IMAGE))
 
+gaia2-mini-swe: gaia2-cli ## Build gaia2-mini-swe image (mini-swe-agent)
+	@echo "══════ Building gaia2-mini-swe ══════"
+	cd $(CLI_CONTAINERS) && \
+	$(PODMAN_BUILD) $(BUILD_FLAGS) $(PROXY_ARGS) $(GAIA2_CLI_ARGS) \
+		-f containers/mini-swe/Dockerfile \
+		-t $(GAIA2_MINI_IMAGE) .
+	$(call copy-to-user,$(GAIA2_MINI_IMAGE))
+
 gaia2-oracle: gaia2-cli ## Build gaia2-oracle image
 	@echo "══════ Building gaia2-oracle ══════"
 	cd $(CLI_CONTAINERS) && \
@@ -105,7 +114,7 @@ gaia2-oracle: gaia2-cli ## Build gaia2-oracle image
 
 # ── Verify ─────────────────────────────────────────────────────────────
 
-verify: verify-gaia2-cli verify-gaia2-oc verify-gaia2-hermes verify-gaia2-oracle ## Smoke-test all images
+verify: verify-gaia2-cli verify-gaia2-oc verify-gaia2-hermes verify-gaia2-mini-swe verify-gaia2-oracle ## Smoke-test all images
 
 verify-gaia2-cli: ## Verify gaia2-cli base image
 	@echo "══════ Verifying $(GAIA2_CLI_IMAGE) ══════"
@@ -152,6 +161,21 @@ verify-gaia2-hermes: ## Verify gaia2-hermes image
 			command -v "$$cmd" > /dev/null 2>&1 || { echo "FAIL: $$cmd not found"; exit 1; }; \
 			echo "  OK: $$cmd"; \
 		done; \
+		echo ""; \
+		echo "All checks passed!" \
+	'
+
+verify-gaia2-mini-swe: ## Verify gaia2-mini-swe image
+	@echo "══════ Verifying $(GAIA2_MINI_IMAGE) ══════"
+	podman run --rm $(GAIA2_MINI_IMAGE) /usr/bin/bash -c ' \
+		echo "--- GAIA2 CLI tools ---"; \
+		for cmd in calendar contacts emails messages chats rent-a-flat city cabs shopping cloud-drive; do \
+			command -v "$$cmd" > /dev/null 2>&1 || { echo "FAIL: $$cmd not found"; exit 1; }; \
+			echo "  OK: $$cmd"; \
+		done; \
+		echo ""; \
+		echo "--- mini-swe-agent ---"; \
+		python3 -c "from minisweagent.agents.default import DefaultAgent; from minisweagent.environments.local import LocalEnvironment; from minisweagent.models.litellm_model import LitellmModel; print(\"  OK: DefaultAgent, LocalEnvironment, LitellmModel importable\")"; \
 		echo ""; \
 		echo "All checks passed!" \
 	'
