@@ -831,6 +831,7 @@ class ContainerRunner:
             # openclaw.log — find the log filename, then copy it out
             if container_id:
                 self._extract_openclaw_log(container_id, artifact_dir)
+                self._extract_mini_trajectory(container_id, artifact_dir)
                 # daemon logs already extracted before judging
 
             logger.info("Artifacts saved to %s", artifact_dir)
@@ -879,6 +880,28 @@ class ContainerRunner:
                         )
             except Exception as exc:
                 logger.debug("Could not extract openclaw log: %s", exc)
+
+    def _extract_mini_trajectory(
+        self,
+        container_id: str,
+        artifact_dir: Path,
+    ) -> None:
+        """Extract mini-swe-agent's native trajectory dump from the container.
+
+        Mini's ``DefaultAgent.save(config.output_path)`` writes a full
+        ``mini-swe-agent-1.1`` trajectory file after every step. The
+        worker points it at ``/tmp/mini-trajectory.json``. Best-effort
+        copy out alongside the GAIA2-format ``trace.jsonl``; useful for
+        ``mini-extra inspector`` replay and raw debugging.
+        """
+        try:
+            self.launcher.copy_from(
+                container_id,
+                "/tmp/mini-trajectory.json",
+                str(artifact_dir / "mini-trajectory.json"),
+            )
+        except Exception as exc:
+            logger.debug("Could not extract mini-trajectory.json: %s", exc)
 
     def _extract_daemon_logs(
         self,

@@ -82,6 +82,15 @@ _HERMES = ContainerProfile(
     base_url_keys=["BASE_URL"],
 )
 
+_MINI = ContainerProfile(
+    provider_key="PROVIDER",
+    api_key_key="API_KEY",
+    model_key="MODEL",
+    default_provider="anthropic",
+    extra_flags={},
+    base_url_keys=["BASE_URL"],
+)
+
 _ORACLE = ContainerProfile(
     provider_key="PROVIDER",
     api_key_key="API_KEY",
@@ -158,6 +167,8 @@ def detect_profile(image: str) -> ContainerProfile:
         return _OPENCLAW
     if "gaia2-hermes" in image_lower or "hermes" in image_lower:
         return _HERMES
+    if "gaia2-mini" in image_lower or "mini-swe-agent" in image_lower:
+        return _MINI
     if "gaia2-oracle" in image_lower or "oracle" in image_lower:
         return _ORACLE
     return _DEFAULT
