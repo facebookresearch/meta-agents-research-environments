@@ -25,7 +25,7 @@ gaia2-replay = "gaia2_cli.daemon.replay:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
-judge = ["litellm>=1.0"]
+judge = ["litellm>=1.84.0"]
 
 [tool.setuptools.packages.find]
 include = ["gaia2_cli*"]
