@@ -44,6 +44,12 @@ ARE addresses critical gaps in AI agent evaluation by providing:
 | **[Gaia2 Leaderboard](https://huggingface.co/spaces/meta-agents-research-environments/leaderboard)** | Check the self-published results from Gaia2 Benchmark runs. |
 | **[Learn More](https://facebookresearch.github.io/meta-agents-research-environments/foundations/index.html)** | Dive deeper into the core concepts of agents, environments, apps, events, and scenarios. |
 
+## Related external benchmarks
+
+The following independent benchmark is related to ARE's agent-evaluation scope but is not integrated with or supported by Meta Agents Research Environments or Gaia2:
+
+* **[ClawBench](https://github.com/TIGER-AI-Lab/ClawBench)** — [paper](https://arxiv.org/abs/2604.08523) and [project page](https://claw-bench.com/). It evaluates web and computer-use agents on 283 tasks across 163 live platforms with isolated browser sessions, request-level outcome checks, and recorded action, screenshot, network, and message traces. See the project's own [runner and setup instructions](https://github.com/TIGER-AI-Lab/ClawBench#readme); task definitions are available on [Hugging Face](https://huggingface.co/datasets/NAIL-Group/ClawBench) and mirrored at [TIGER-Lab/ClawBench](https://huggingface.co/datasets/TIGER-Lab/ClawBench).
+
 
 ## Install
 
