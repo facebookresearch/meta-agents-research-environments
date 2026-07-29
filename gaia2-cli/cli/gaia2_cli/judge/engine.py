@@ -10,6 +10,7 @@ Provider-specific request setup lives in ``gaia2-cli`` rather than
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,12 @@ def create_litellm_engine(
     logging.getLogger("LiteLLM").setLevel(logging.WARNING)
     logging.getLogger("litellm").setLevel(logging.WARNING)
 
+    # Custom OpenAI-compatible endpoints (e.g. vLLM gpt-oss) may receive params
+    # litellm doesn't whitelist. Drop unknown top-level params instead of raising
+    # UnsupportedParamsError (which would make every judge call fail -> None ->
+    # all soft checks "inconclusive"). reasoning_effort is sent via extra_body.
+    litellm.drop_params = True
+
     # For arbitrary model IDs behind OpenAI-compatible endpoints, prefix the
     # model so LiteLLM uses the OpenAI transport instead of provider inference.
     effective_api_base = base_url
@@ -62,9 +69,29 @@ def create_litellm_engine(
     ):
         effective_model = f"openai/{model}"
 
+    # Some reasoning backends (e.g. gpt-oss, Gemma, Qwen) default an omitted
+    # max_tokens to the full context window, which then fails ("max input 0").
+    # Cap it. Read from
+    # env so it can be tuned without a rebuild; default is generous for reasoning.
+    _judge_max_tokens = int(
+        os.environ.get("GAIA2_JUDGE_MAX_TOKENS")
+        or os.environ.get("MAX_TOKENS")
+        or "16384"
+    )
+
+    # The reference judge (gpt-oss-120b) runs at "low" reasoning effort. Default
+    # to low; override via GAIA2_JUDGE_REASONING_EFFORT (set to "none"/empty to
+    # omit the parameter entirely).
+    _judge_reasoning = os.environ.get("GAIA2_JUDGE_REASONING_EFFORT", "low").strip()
+
     def engine(messages: list[dict], **kwargs: Any) -> tuple[str | None, dict]:
         """Call the LLM via litellm."""
         try:
+            _extra: dict[str, Any] = {}
+            if _judge_reasoning and _judge_reasoning.lower() != "none":
+                # Pass via extra_body so litellm forwards it verbatim to the
+                # endpoint (top-level reasoning_effort triggers UnsupportedParamsError).
+                _extra["extra_body"] = {"reasoning_effort": _judge_reasoning}
             response = litellm.completion(
                 model=effective_model,
                 messages=messages,
@@ -72,6 +99,8 @@ def create_litellm_engine(
                 api_key=api_key,
                 max_retries=max_retries,
                 temperature=0,
+                max_tokens=_judge_max_tokens,
+                **_extra,
             )
             content = response.choices[0].message.content
             return content, {"model": model}

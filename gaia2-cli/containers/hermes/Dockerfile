@@ -116,7 +116,10 @@ COPY shared/AGENTS_TEMPLATE.md /opt/AGENTS_TEMPLATE.md
 COPY containers/hermes/gaia2_adapter.py /opt/gaia2_adapter.py
 COPY containers/hermes/hermes_worker.py /opt/hermes_worker.py
 COPY containers/hermes/entrypoint.sh /opt/entrypoint.sh
-RUN chmod +x /opt/entrypoint.sh
+# Source files are mode 660 (no world-read). After COPY the agent/gaia2 users
+# cannot read files under /opt, so running entrypoint.sh / gaia2_adapter.py as
+# those users fails with "Permission denied". Grant read access recursively.
+RUN chmod -R a+rX /opt
 
 ENV HOME=/home/agent
 
@@ -129,7 +132,7 @@ ENV PATH="/home/agent/bin"
 # ── Entrypoint ─────────────────────────────────────────────────────────
 USER root
 COPY containers/hermes/gaia2-init-entrypoint.sh /opt/gaia2-init-entrypoint.sh
-RUN chmod +x /opt/gaia2-init-entrypoint.sh
+RUN chmod -R a+rX /opt
 
 ENTRYPOINT []
 CMD ["/usr/bin/bash", "/opt/gaia2-init-entrypoint.sh"]

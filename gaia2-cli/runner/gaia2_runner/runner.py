@@ -393,6 +393,11 @@ class ContainerRunner:
         if "BASE_URL" not in effective_env and "BASE_URL" in os.environ:
             effective_env["BASE_URL"] = os.environ["BASE_URL"]
 
+        # Pass through MAX_TOKENS so reasoning models (e.g. gpt-oss, Gemma, Qwen)
+        # get an output cap; some backends default omitted max_tokens to full context.
+        if "MAX_TOKENS" not in effective_env and os.environ.get("MAX_TOKENS"):
+            effective_env["MAX_TOKENS"] = os.environ["MAX_TOKENS"]
+
         if output_dir:
             effective_env["GAIA2_TRACE_FILE"] = _CONTAINER_TRACE_PATH
 

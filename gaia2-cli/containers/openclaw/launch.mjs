@@ -123,6 +123,18 @@ globalThis.fetch = async function(url, init) {
     try {
       const reqBody = JSON.parse(init.body);
       let changed = false;
+      // Reasoning models (e.g. gpt-oss, Gemma, Qwen) treat `reasoning` as an output-only
+      // field. OpenClaw echoes the previous turn's reasoning back into the message
+      // history, which some backends reject (HTTP 500) and which bloats the payload.
+      // Strip it before sending.
+      if (Array.isArray(reqBody.messages)) {
+        for (const m of reqBody.messages) {
+          if (m && typeof m === "object") {
+            if (m.reasoning !== undefined) { delete m.reasoning; changed = true; }
+            if (m.reasoning_content !== undefined) { delete m.reasoning_content; changed = true; }
+          }
+        }
+      }
       const isOpenRouter = urlStr.includes("openrouter.ai");
       if (reqBody.stream && !isOpenRouter) {
         reqBody.stream = false;

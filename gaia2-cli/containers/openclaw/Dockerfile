@@ -206,7 +206,10 @@ COPY containers/openclaw/gaia2_adapter.py /opt/gaia2_adapter.py
 COPY containers/openclaw/openclaw_config.py /opt/openclaw_config.py
 COPY containers/openclaw/openclaw-setup.sh /etc/profile.d/openclaw-setup.sh
 COPY containers/openclaw/entrypoint.sh /opt/entrypoint.sh
-RUN chmod +x /opt/entrypoint.sh
+# Source files are mode 660 (no world-read). After COPY the agent user cannot
+# read files under /opt (even the build-time `USER agent` step fails). Grant read
+# access recursively, but keep the TLS private keys at 600.
+RUN chmod -R a+rX /opt && chmod a+rx /etc/profile.d/openclaw-setup.sh && chmod 600 /opt/tls-proxy/ca.key /opt/tls-proxy/host.key
 
 ENV HOME=/home/agent
 

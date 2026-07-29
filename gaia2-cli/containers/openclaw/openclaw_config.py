@@ -261,13 +261,19 @@ def resolve_provider_setup(env: Mapping[str, str]) -> ProviderSetup:
             raise SetupError(f"MODEL is required for provider '{provider}'")
         if base_url is None:
             raise SetupError(f"BASE_URL is required for provider '{provider}'")
+        # Some reasoning backends have a smaller real context window (e.g. 131072)
+        # than OpenClaw's defaults (262144/65535); an oversized later-turn request
+        # (history + notifications) then exceeds the upstream window and the backend
+        # returns HTTP 500. Allow overriding both via env to match the model.
+        _ctx = int(first_nonempty(env.get("GAIA2_CONTEXT_WINDOW"), default="131072"))
+        _max_tok = int(first_nonempty(env.get("MAX_TOKENS"), default="16384"))
         provider_config = build_openai_completions_provider(
             base_url,
             api_key,
             model,
             reasoning=True,
-            context_window=DEFAULT_OPENAI_COMPAT_CONTEXT_WINDOW,
-            max_tokens=DEFAULT_OPENAI_COMPAT_MAX_TOKENS,
+            context_window=_ctx,
+            max_tokens=_max_tok,
         )
     else:
         raise SetupError(f"Unknown provider '{provider}'")
