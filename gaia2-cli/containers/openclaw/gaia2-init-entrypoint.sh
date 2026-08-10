@@ -22,6 +22,11 @@
 #   GAIA2_JUDGE_BASE_URL — optional API base URL override for the in-container judge
 #   GAIA2_JUDGE_API_KEY  — optional API key override for the in-container judge
 #   FAKETIME             — simulated start time (e.g., "2025-09-01 07:00:00")
+#   GAIA2_DISABLE_FAKETIME — "1" disables simulated time: no scenario
+#       auto-detection and no MITM TLS proxy. Only this container honours it;
+#       the flag exists because the proxy (needed to give Node a trusted CA
+#       under a faked clock) is openclaw-specific — the other agent containers
+#       have no TLS proxy, so there is nothing there to disable.
 #   API_KEY / provider-specific keys — forwarded to the agent runtime
 
 set -eo pipefail
@@ -40,6 +45,12 @@ AGENT_ENV_FILE=/tmp/openclaw-env.sh
 
 
 detect_faketime_from_scenario() {
+    # GAIA2_DISABLE_FAKETIME=1 suppresses faketime entirely (see header).
+    if [ "${GAIA2_DISABLE_FAKETIME:-}" = "1" ]; then
+        unset FAKETIME
+        echo "[gaia2-init] GAIA2_DISABLE_FAKETIME=1 — skipping FAKETIME auto-detection" >&2
+        return
+    fi
     [ -n "${FAKETIME:-}" ] && return
 
     FAKETIME=$(python3 -c "
@@ -155,7 +166,9 @@ start_eventd() {
             ${GAIA2_JUDGE_PROVIDER:+--judge-provider $GAIA2_JUDGE_PROVIDER} \
             ${GAIA2_JUDGE_BASE_URL:+--judge-base-url $GAIA2_JUDGE_BASE_URL} \
             ${GAIA2_JUDGE_API_KEY:+--judge-api-key '$GAIA2_JUDGE_API_KEY'} \
+            ${GAIA2_JUDGE_PROMPT_VERSION:+--judge-prompt-version $GAIA2_JUDGE_PROMPT_VERSION} \
             ${GAIA2_TIME_SPEED:+--time-speed $GAIA2_TIME_SPEED} \
+            ${GAIA2_IDLE_TIMEOUT:+--idle-timeout $GAIA2_IDLE_TIMEOUT} \
             >> '$EVENTD_LOG' 2>&1 &
     "
     echo "[gaia2-init] Daemon launched (log: $EVENTD_LOG)" >&2

@@ -36,12 +36,24 @@ ARG https_proxy
 ENV http_proxy=${http_proxy} https_proxy=${https_proxy}
 RUN echo 'APT::Sandbox::User "root";' | tee -a /etc/apt/apt.conf.d/10sandbox
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl ca-certificates gnupg git \
+        curl ca-certificates git xz-utils \
     && rm -rf /var/lib/apt/lists/*
-# Node.js 22.x via NodeSource
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+# Node.js 22.x from the official nodejs.org tarball.
+# (NodeSource — deb.nodesource.com — is blocked on some clusters' egress
+# firewalls, but nodejs.org itself is reachable.)
+ARG NODE_VERSION=22.14.0
+RUN ARCH=$(uname -m) && \
+    case "$ARCH" in \
+        x86_64)  NODE_ARCH=x64 ;; \
+        aarch64) NODE_ARCH=arm64 ;; \
+        *) echo "Unsupported arch: $ARCH" >&2; exit 1 ;; \
+    esac && \
+    curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
+        -o /tmp/node.tar.xz && \
+    tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
+        --exclude='*.md' --exclude='LICENSE' && \
+    rm /tmp/node.tar.xz && \
+    node --version
 # OpenClaw npm package — downloaded as tarball to avoid host security policies
 # killing processes with "openclaw" in the command line
 ARG OPENCLAW_VERSION=2026.4.1
@@ -50,7 +62,7 @@ RUN curl -fSL "https://registry.npmjs.org/openclaw/-/openclaw-${OPENCLAW_VERSION
     npm install -g /tmp/pkg.tgz && \
     rm /tmp/pkg.tgz
 # Copy to /opt/chatbot (layout expected by launch.mjs and dist/*.js)
-RUN cp -r /usr/lib/node_modules/openclaw /opt/chatbot
+RUN cp -r /usr/local/lib/node_modules/openclaw /opt/chatbot
 
 # ── Stage 3: Final image — gaia2-cli base + Node.js + OpenClaw ───────────
 ARG GAIA2_CLI_IMAGE
@@ -58,7 +70,7 @@ ARG GAIA2_CLI_VERSION
 FROM ${GAIA2_CLI_IMAGE}:${GAIA2_CLI_VERSION}
 
 # ── Node.js runtime (from openclaw builder) ──────────────────────────────
-COPY --from=openclaw-builder /usr/bin/node /usr/bin/node
+COPY --from=openclaw-builder /usr/local/bin/node /usr/bin/node
 
 # ── OpenClaw gateway application + node_modules ─────────────────────────
 COPY --from=openclaw-builder /opt/chatbot/ /opt/chatbot/
@@ -85,7 +97,7 @@ RUN mkdir -p /opt/tls-proxy && \
     chmod 600 /opt/tls-proxy/ca.key /opt/tls-proxy/host.key
 
 # ── MITM TLS proxy script ─────────────────────────────────────────────────
-COPY shared/tls_proxy.py /opt/tls_proxy.py
+COPY --chmod=0644 shared/tls_proxy.py /opt/tls_proxy.py
 
 # ── Clear/set env vars ───────────────────────────────────────────────────
 ENV OPENCLAW_AVAILABLE=""
@@ -108,7 +120,7 @@ RUN printf '#!/bin/bash\nexport NODE_EXTRA_CA_CERTS="${NODE_EXTRA_CA_CERTS:-/opt
   > /usr/local/bin/oc && chmod +x /usr/local/bin/oc
 
 # ── Custom launch.mjs (proxy dispatcher + transport shim) ────────────────
-COPY containers/openclaw/launch.mjs containers/openclaw/launch_request_utils.mjs /opt/chatbot/
+COPY --chmod=0644 containers/openclaw/launch.mjs containers/openclaw/launch_request_utils.mjs /opt/chatbot/
 
 # ── Rename openclaw.mjs to gaia2-gw.mjs (some hosts kill "openclaw" processes) ─
 RUN if [ -f /opt/chatbot/openclaw.mjs ]; then \
@@ -199,13 +211,13 @@ RUN printf '#!/usr/bin/bash\nif [ -f /tmp/faketime.rc ]; then\n  export LD_PRELO
     cp /home/agent/bin/bash /home/agent/bin/sh
 
 # ── OpenClaw config + adapter + entrypoint ───────────────────────────────
-COPY shared/gaia2_adapter_base.py /opt/gaia2_adapter_base.py
-COPY shared/render_agent_prompt.py /opt/render_agent_prompt.py
-COPY shared/AGENTS_TEMPLATE.md /opt/AGENTS_TEMPLATE.md
-COPY containers/openclaw/gaia2_adapter.py /opt/gaia2_adapter.py
-COPY containers/openclaw/openclaw_config.py /opt/openclaw_config.py
-COPY containers/openclaw/openclaw-setup.sh /etc/profile.d/openclaw-setup.sh
-COPY containers/openclaw/entrypoint.sh /opt/entrypoint.sh
+COPY --chmod=0644 shared/gaia2_adapter_base.py /opt/gaia2_adapter_base.py
+COPY --chmod=0644 shared/render_agent_prompt.py /opt/render_agent_prompt.py
+COPY --chmod=0644 shared/AGENTS_TEMPLATE.md /opt/AGENTS_TEMPLATE.md
+COPY --chmod=0644 containers/openclaw/gaia2_adapter.py /opt/gaia2_adapter.py
+COPY --chmod=0644 containers/openclaw/openclaw_config.py /opt/openclaw_config.py
+COPY --chmod=0644 containers/openclaw/openclaw-setup.sh /etc/profile.d/openclaw-setup.sh
+COPY --chmod=0755 containers/openclaw/entrypoint.sh /opt/entrypoint.sh
 RUN chmod +x /opt/entrypoint.sh
 
 ENV HOME=/home/agent
@@ -223,7 +235,7 @@ ENV PATH="/home/agent/bin"
 
 # ── Entrypoint ─────────────────────────────────────────────────────────
 USER root
-COPY containers/openclaw/gaia2-init-entrypoint.sh /opt/gaia2-init-entrypoint.sh
+COPY --chmod=0755 containers/openclaw/gaia2-init-entrypoint.sh /opt/gaia2-init-entrypoint.sh
 RUN chmod +x /opt/gaia2-init-entrypoint.sh
 
 ENTRYPOINT []
