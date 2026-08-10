@@ -112,12 +112,15 @@ class Gaia2EventDaemon:
         judge_provider: str | None = None,
         judge_base_url: str | None = None,
         judge_api_key: str | None = None,
+        judge_prompt_version: str | None = None,
+        judge_extra_body: dict | None = None,
         poll_interval: float = 1.0,
         log_path: str | None = None,
         notify_url: str | None = None,
         faketime_path: str | None = None,
         notification_mode: str = "message",
         time_speed: float | None = None,
+        idle_timeout: float = 300.0,
     ) -> None:
         self.scenario_path = Path(scenario_path)
         self.state_dir = Path(state_dir)
@@ -138,11 +141,14 @@ class Gaia2EventDaemon:
         self.judge_provider = judge_provider
         self.judge_base_url = judge_base_url
         self.judge_api_key = judge_api_key
+        self.judge_prompt_version = judge_prompt_version
+        self.judge_extra_body = judge_extra_body
         self.poll_interval = poll_interval
         self.notify_url = notify_url
         self.faketime_path = Path(faketime_path) if faketime_path else None
         self._notification_mode = notification_mode
         self._time_speed = time_speed
+        self._idle_timeout = idle_timeout
 
         self._last_event_offset: int = 0  # byte offset into events.jsonl
         self._turn_count: int = 0
@@ -316,6 +322,7 @@ class Gaia2EventDaemon:
                 base_url=self.judge_base_url,
                 validate=False,
                 api_key=self.judge_api_key,
+                extra_body=self.judge_extra_body,
             )
             logger.info(
                 "Judge LLM engine: model=%s provider=%s base_url=%s",
@@ -323,6 +330,18 @@ class Gaia2EventDaemon:
                 self.judge_provider,
                 self.judge_base_url,
             )
+
+        # Resolve OmniGAIA judge prompt overrides (e.g. omnigaia). Unknown
+        # versions fall back to defaults with a warning rather than aborting.
+        prompt_overrides = None
+        if self.judge_prompt_version:
+            from gaia2_core.judge.prompt_overrides import resolve_prompt_overrides
+
+            try:
+                prompt_overrides = resolve_prompt_overrides(self.judge_prompt_version)
+                logger.info("Judge prompt version: %s", self.judge_prompt_version)
+            except KeyError as e:
+                logger.warning("%s — using default judge prompts", e)
 
         judge = Judge(
             turn_to_oracle_events=turn_oracle_events,
@@ -333,6 +352,7 @@ class Gaia2EventDaemon:
             engine=engine,
             app_name_to_class=loader.app_name_to_class,
             state_dir=str(self.state_dir),
+            prompt_overrides=prompt_overrides,
         )
         logger.info(
             "Judge created: %d turns, %d oracle events",
@@ -454,7 +474,7 @@ class Gaia2EventDaemon:
 
         poll_count = 0
         last_activity = time.time()
-        idle_timeout = 300.0  # shutdown if no events for 5 minutes
+        idle_timeout = self._idle_timeout  # shutdown if no events for this many seconds
         while self._running:
             # Advance simulated time and fire due ENV events.
             # This runs on every poll iteration so ENV events fire
@@ -1189,6 +1209,21 @@ class Gaia2EventDaemon:
     help="Optional API key override for the judge LLM.",
 )
 @click.option(
+    "--judge-prompt-version",
+    default=None,
+    help="OmniGAIA judge prompt-template override set "
+    "(e.g. omnigaia). Omit/default for the built-in gaia2-core prompts.",
+)
+@click.option(
+    "--judge-extra-body",
+    default=None,
+    help="JSON dict forwarded verbatim to litellm.completion as extra_body. "
+    "Required for Qwen3 thinking checkpoints: "
+    '\'{"chat_template_kwargs":{"enable_thinking":true}}\'. Without it, '
+    "the judge model returns content=null on every verdict. "
+    "Ignored by non-vLLM providers (vLLM Jinja templates ignore unused kwargs).",
+)
+@click.option(
     "--poll-interval",
     default=1.0,
     type=float,
@@ -1220,6 +1255,13 @@ class Gaia2EventDaemon:
     type=float,
     help="Time speed multiplier (e.g. 5 = 5x faster). Multiplies scenario time_increment.",
 )
+@click.option(
+    "--idle-timeout",
+    default=300.0,
+    type=float,
+    help="Seconds of no agent events before the daemon shuts down with status=error. "
+    "Raise this when the agent legitimately needs long stretches between tool calls.",
+)
 def main(
     scenario: str,
     state_dir: str,
@@ -1230,11 +1272,14 @@ def main(
     judge_provider: str | None,
     judge_base_url: str | None,
     judge_api_key: str | None,
+    judge_prompt_version: str | None,
+    judge_extra_body: str | None,
     poll_interval: float,
     notify_url: str | None,
     faketime_path: str | None,
     notification_mode: str,
     time_speed: float | None,
+    idle_timeout: float,
 ) -> None:
     """Run the Gaia2 event daemon.
 
@@ -1250,6 +1295,23 @@ def main(
     # File logging to {state_dir}/eventd.log
     log_path = str(Path(state_dir) / "eventd.log")
 
+    # Parse --judge-extra-body JSON (optional). Fail loudly on malformed input —
+    # silent None would defeat the whole purpose of this arg (Qwen3 thinking
+    # models return content=null without extra_body, which is the failure mode
+    # we're guarding against).
+    parsed_extra_body: dict | None = None
+    if judge_extra_body:
+        import json as _json
+
+        try:
+            parsed_extra_body = _json.loads(judge_extra_body)
+            if not isinstance(parsed_extra_body, dict):
+                raise ValueError(
+                    f"--judge-extra-body must be a JSON object, got {type(parsed_extra_body).__name__}"
+                )
+        except (_json.JSONDecodeError, ValueError) as e:
+            raise click.UsageError(f"--judge-extra-body: {e}")
+
     daemon = Gaia2EventDaemon(
         scenario_path=scenario,
         state_dir=state_dir,
@@ -1260,12 +1322,15 @@ def main(
         judge_provider=judge_provider,
         judge_base_url=judge_base_url,
         judge_api_key=judge_api_key,
+        judge_prompt_version=judge_prompt_version,
+        judge_extra_body=parsed_extra_body,
         poll_interval=poll_interval,
         log_path=log_path,
         notify_url=notify_url,
         faketime_path=faketime_path,
         notification_mode=notification_mode,
         time_speed=time_speed,
+        idle_timeout=idle_timeout,
     )
 
     logger.info("Setting up daemon... (log: %s)", log_path)

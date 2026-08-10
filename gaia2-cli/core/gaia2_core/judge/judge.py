@@ -48,6 +48,7 @@ class Judge:
         pre_event_tolerance_seconds: float = 10.0,
         post_event_tolerance_seconds: float = 25.0,
         time_check_warn_only: bool = False,
+        prompt_overrides: dict | None = None,
     ) -> None:
         self.turn_to_oracle_events = turn_to_oracle_events
         self.turn_to_oracle_graph = turn_to_oracle_graph
@@ -81,7 +82,9 @@ class Judge:
             try:
                 from gaia2_core.judge.checkers import build_llm_checkers
 
-                self._llm_checkers = build_llm_checkers(engine)
+                self._llm_checkers = build_llm_checkers(
+                    engine, prompt_template_overrides=prompt_overrides
+                )
             except Exception as e:
                 logger.warning("Failed to build LLM checkers: %s", e)
 
