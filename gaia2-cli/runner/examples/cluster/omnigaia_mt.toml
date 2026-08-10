@@ -1,0 +1,40 @@
+# OmniGAIA-MT evaluation on a SLURM cluster.
+#
+# Runs the gaia2-cli benchmark on a *translated* Gaia2 dataset (produced by
+# `mt/scripts/run_translate.sh`) using the OmniGAIA multilingual judge prompts.
+#
+# Agent = Gemma 4 31B IT, judge = gpt-oss-120b, both served locally via vLLM
+# (TP=2 each, see RUNBOOK.md). Mirror of local_vllm_oc_gemma.toml with
+# two changes: a local translated `dataset_root` and `[judge].prompt_version`.
+
+[target]
+# Directory of translated scenarios, one subdir per split (search/execution/...).
+# This is the `output_dir` written by mt/scripts/run_translate.sh — translate
+# first, then point this at it. $USER/$TGT_LANG expand at load time.
+dataset_root = "/path/to/scratch/$USER/omnigaia/omnigaia-mt/spa_Latn/data"
+splits       = "search"     # execution, search, ambiguity, adaptability
+
+[agent]
+image       = "localhost/gaia2-oc:latest"
+provider    = "openai-compat"
+model       = "gemma-4-31b"                   # must match --served-model-name
+api_key_env = "OPENAI_COMPAT_API_KEY"
+base_url    = "http://localhost:8000/v1"
+thinking    = "off"                           # Gemma is not a reasoning model
+
+[judge]
+provider       = "openai-compat"
+model          = "gpt-oss-120b"               # must match --served-model-name
+api_key_env    = "OPENAI_COMPAT_API_KEY"
+base_url       = "http://localhost:8001/v1"
+# OmniGAIA multilingual checker prompts. Use "default" for stock gaia2-core
+# prompts; "omnigaia" is the current multilingual override set.
+prompt_version = "omnigaia"
+
+[run]
+timeout        = 1200
+health_timeout = 180
+concurrency    = 4
+pass_at        = 3
+output_dir     = "/path/to/scratch/$USER/omnigaia/eval/oc_gemma_mt_spa_search_p3"
+log_level      = "INFO"

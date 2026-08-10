@@ -1,0 +1,47 @@
+# OmniGAIA-MT, all four splits, apptainer runtime — the base config for a
+# sharded fan-out (see RUNBOOK.sharded.md).
+#
+# This is the shape a fan-out wants: `runtime = "apptainer"` (works on CPU
+# partitions with an overlayfs /scratch) and a raised `idle_timeout`. The
+# `--shard-id`/`--num-shards` fields are supplied per shard, not here.
+#
+# Common edits:
+#   - Another locale: change `dataset_root` (…/<lang>_Latn/data) and
+#     `output_dir`. Nothing else differs between languages.
+#   - A smoke run: set `[target].limit` (e.g. 1) and `pass_at = 1`.
+#   - pass@3 instead of pass@1: set `pass_at = 3` — roughly 3× the spend.
+#   - Shared endpoints: leave the `base_url` placeholders and pass the real
+#     URLs per fan-out; the per-shard `sbatch` fills them in.
+
+[target]
+dataset_root = "/path/to/shared/omnigaia/data/omnigaia-mt/data/3103_gaia2_verified-mt-v2/eng_Latn/data"
+splits       = ["execution", "search", "ambiguity", "adaptability"]
+# limit      = 1     # smoke runs only: first N scenarios per split
+
+[agent]
+image       = "localhost/gaia2-oc:latest"
+runtime     = "apptainer"
+image_sif   = "/path/to/meta-agents-research-environments/gaia2-cli/gaia2-images/gaia2-oc.sif"
+provider    = "openai-compat"
+model       = "gemma-4-31b-it"                # must match the served model_id
+api_key_env = "OPENAI_COMPAT_API_KEY"
+base_url    = "http://<agent-host>:8000/v1"
+thinking    = "off"                           # Gemma is not a reasoning model
+
+[judge]
+provider       = "openai-compat"
+model          = "gpt-oss-120b"               # must match the served model_id
+api_key_env    = "OPENAI_COMPAT_API_KEY"
+base_url       = "http://<judge-host>:8001/v1"
+# OmniGAIA multilingual checker prompts. Use "default" for stock gaia2-core
+# prompts; "omnigaia" is the current multilingual override set.
+prompt_version = "omnigaia"
+
+[run]
+timeout        = 1200
+health_timeout = 180
+concurrency    = 4
+pass_at        = 1
+idle_timeout   = 600.0                        # default 300 s clips long turns
+output_dir     = "/path/to/scratch/$USER/omnigaia/eval/oc_gemma_mt_eng_apptainer_p1"
+log_level      = "INFO"

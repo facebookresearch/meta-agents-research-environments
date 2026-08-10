@@ -1,0 +1,31 @@
+# Full Gaia2-CLI, OpenClaw runtime, agent = Gemma 4 31B IT, judge = gpt-oss-120b.
+# Both models served locally via vLLM (TP=2 each, see RUNBOOK.md).
+
+[target]
+dataset = "meta-agents-research-environments/gaia2-cli"
+# splits  = "all"   # execution, search, ambiguity, adaptability, time (800 total)
+splits  = "search"
+limit   = 10    # first N scenarios in the selected splits
+
+[agent]
+image       = "localhost/gaia2-oc:latest"
+provider    = "openai-compat"
+model       = "gemma-4-31b"                   # must match --served-model-name
+api_key_env = "OPENAI_COMPAT_API_KEY"
+base_url    = "http://localhost:8000/v1"
+thinking    = "off"                           # Gemma is not a reasoning model
+
+[judge]
+provider    = "openai-compat"
+model       = "gpt-oss-120b"                  # must match --served-model-name
+api_key_env = "OPENAI_COMPAT_API_KEY"
+base_url    = "http://localhost:8001/v1"
+
+[run]
+timeout         = 1200      # 31B is slower than 8B; raise from default 900s
+health_timeout  = 180
+concurrency     = 4         # raise after watching vLLM throughput headroom
+pass_at         = 3         # bump to 3 for paper-style variance reporting
+# output_dir      = "/path/to/scratch/$USER/omnigaia/oc_gemma_full"
+output_dir  = "/path/to/scratch/$USER/omnigaia/oc_gemma_search10_p3"
+log_level       = "INFO"
