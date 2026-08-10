@@ -60,6 +60,7 @@ class AgentConfig:
     base_url: str | None
     thinking: str
     volumes: tuple[str, ...]
+    image_sif: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +69,12 @@ class JudgeConfig:
     provider: str
     base_url: str | None
     api_key: str | None
+    prompt_version: str | None = None
+    # Provider-specific extras forwarded verbatim to litellm.completion.
+    # Required for Qwen3 thinking checkpoints: pass
+    # {"chat_template_kwargs": {"enable_thinking": true}} — without it, the
+    # judge model returns content=null on every verdict.
+    extra_body: dict | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +90,10 @@ class RunConfig:
     log_level: str
     notification_mode: str
     time_speed: float | None
+    idle_timeout: float | None
+    stuck_loop_min_tool_calls: int
+    shard_id: int = 0
+    num_shards: int = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +127,14 @@ def _as_required_str(value: Any, name: str) -> str:
     if not text:
         raise click.UsageError(f"{name} is required")
     return text
+
+
+def _as_optional_dict(value: Any, name: str) -> dict | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise click.UsageError(f"{name} must be a TOML inline table / dict")
+    return value or None
 
 
 def _as_optional_int(value: Any, name: str) -> int | None:
@@ -312,6 +331,7 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         table_name="agent",
         allowed_keys={
             "image",
+            "image_sif",
             "runtime",
             "provider",
             "model",
@@ -325,7 +345,15 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
     _validate_allowed_keys(
         judge_table,
         table_name="judge",
-        allowed_keys={"model", "provider", "base_url", "api_key", "api_key_env"},
+        allowed_keys={
+            "model",
+            "provider",
+            "base_url",
+            "api_key",
+            "api_key_env",
+            "prompt_version",
+            "extra_body",
+        },
     )
     _validate_allowed_keys(
         run_table,
@@ -342,6 +370,10 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
             "log_level",
             "notification_mode",
             "time_speed",
+            "idle_timeout",
+            "stuck_loop_min_tool_calls",
+            "shard_id",
+            "num_shards",
         },
     )
 
@@ -419,6 +451,16 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
     )
     volumes = _as_string_list(agent_table.get("volumes"), "[agent].volumes")
     api_key = _resolve_secret(agent_table, section_name="agent")
+    image_sif = _as_optional_str(agent_table.get("image_sif"), "[agent].image_sif")
+    if image_sif and runtime != "apptainer":
+        raise click.UsageError(
+            '[agent].image_sif is only valid when [agent].runtime = "apptainer"'
+        )
+    if runtime == "apptainer" and not (image_sif or os.environ.get("GAIA2_OC_SIF")):
+        raise click.UsageError(
+            '[agent].runtime = "apptainer" needs [agent].image_sif '
+            "or the GAIA2_OC_SIF env var to point at the built .sif"
+        )
 
     profile = detect_profile(image)
     if profile.requires_agent_llm and (not provider or not model):
@@ -435,6 +477,7 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         base_url=base_url,
         thinking=thinking,
         volumes=volumes,
+        image_sif=image_sif,
     )
 
     judge = JudgeConfig(
@@ -442,6 +485,12 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         provider=_as_required_str(judge_table.get("provider"), "[judge].provider"),
         base_url=_as_optional_str(judge_table.get("base_url"), "[judge].base_url"),
         api_key=_resolve_secret(judge_table, section_name="judge"),
+        prompt_version=_as_optional_str(
+            judge_table.get("prompt_version"), "[judge].prompt_version"
+        ),
+        extra_body=_as_optional_dict(
+            judge_table.get("extra_body"), "[judge].extra_body"
+        ),
     )
 
     output_dir = _resolve_path(
@@ -451,6 +500,19 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         must_exist=False,
         must_be_dir=False,
     )
+
+    # Sharded runs append shard_{id:02d}_of_{n:02d} to output_dir so concurrent
+    # shards don't collide. Read shard fields here so we can apply the
+    # namespacing before deriving the default `output` path below.
+    shard_id_value = _as_int(run_table.get("shard_id"), "[run].shard_id", default=0)
+    num_shards_value = _as_int(
+        run_table.get("num_shards"), "[run].num_shards", default=1
+    )
+    if output_dir and num_shards_value > 1:
+        output_dir = str(
+            Path(output_dir) / f"shard_{shard_id_value:02d}_of_{num_shards_value:02d}"
+        )
+
     output = _resolve_path(
         _as_optional_str(run_table.get("output"), "[run].output"),
         base_dir=base_dir,
@@ -485,6 +547,16 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
             default="message",
         ),
         time_speed=_as_optional_float(run_table.get("time_speed"), "[run].time_speed"),
+        idle_timeout=_as_optional_float(
+            run_table.get("idle_timeout"), "[run].idle_timeout"
+        ),
+        stuck_loop_min_tool_calls=_as_int(
+            run_table.get("stuck_loop_min_tool_calls"),
+            "[run].stuck_loop_min_tool_calls",
+            default=0,
+        ),
+        shard_id=shard_id_value,
+        num_shards=num_shards_value,
     )
 
     if run.timeout < 1:
@@ -497,8 +569,18 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         raise click.UsageError("[run].concurrency must be >= 1")
     if run.pass_at < 1:
         raise click.UsageError("[run].pass_at must be >= 1")
+    if run.num_shards < 1:
+        raise click.UsageError("[run].num_shards must be >= 1")
+    if not 0 <= run.shard_id < run.num_shards:
+        raise click.UsageError(
+            f"[run].shard_id must be in [0, {run.num_shards}), got {run.shard_id}"
+        )
     if run.time_speed is not None and run.time_speed <= 0:
         raise click.UsageError("[run].time_speed must be > 0")
+    if run.idle_timeout is not None and run.idle_timeout <= 0:
+        raise click.UsageError("[run].idle_timeout must be > 0")
+    if run.stuck_loop_min_tool_calls < 0:
+        raise click.UsageError("[run].stuck_loop_min_tool_calls must be >= 0")
     if target.is_single_scenario and target.limit is not None:
         raise click.UsageError("[target].limit is only supported for dataset targets")
     if target.is_single_scenario and run.concurrency != 1:

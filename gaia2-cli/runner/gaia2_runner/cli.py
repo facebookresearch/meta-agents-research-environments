@@ -35,6 +35,7 @@ from tqdm import tqdm
 
 from gaia2_runner.envfile import load_env_file
 from gaia2_runner.launcher import (
+    ApptainerLauncher,
     ContainerLauncher,
     LocalLauncher,
     _allocate_free_port,
@@ -137,6 +138,8 @@ class ScenarioExecutionConfig:
     judge_base_url: str | None
     extra_volumes: tuple[str, ...] = ()
     launcher_type: str = "podman"
+    image_sif: str | None = None
+    stuck_loop_min_tool_calls: int = 0
 
     def create_runner(self, adapter_port: int) -> ContainerRunner:
         """Create a runner with a local LocalLauncher.
@@ -144,11 +147,16 @@ class ScenarioExecutionConfig:
         For VMVM, callers must supply a launcher from a :class:`None`
         and use :meth:`run_with_runner` directly.
         """
-        launcher: ContainerLauncher = LocalLauncher(runtime=self.runtime)
+        launcher: ContainerLauncher
+        if self.runtime == "apptainer":
+            launcher = ApptainerLauncher(image_sif=self.image_sif)
+        else:
+            launcher = LocalLauncher(runtime=self.runtime)
         return ContainerRunner(
             launcher=launcher,
             image=self.image,
             adapter_port=adapter_port,
+            stuck_loop_min_tool_calls=self.stuck_loop_min_tool_calls,
         )
 
     def run_with_runner(
@@ -516,16 +524,21 @@ def _build_container_env(
     thinking: str,
     notification_mode: str = "message",
     time_speed: float | None = None,
+    idle_timeout: float | None = None,
     judge_model: str | None = None,
     judge_provider: str | None = None,
     judge_base_url: str | None = None,
     judge_api_key: str | None = None,
+    judge_prompt_version: str | None = None,
+    judge_extra_body: dict | None = None,
 ) -> dict[str, str]:
     container_env = {"THINKING": thinking}
     if notification_mode != "message":
         container_env["GAIA2_NOTIFICATION_MODE"] = notification_mode
     if time_speed is not None:
         container_env["GAIA2_TIME_SPEED"] = str(time_speed)
+    if idle_timeout is not None:
+        container_env["GAIA2_IDLE_TIMEOUT"] = str(idle_timeout)
     if judge_model:
         container_env["GAIA2_JUDGE_MODEL"] = judge_model
     if judge_provider:
@@ -534,12 +547,62 @@ def _build_container_env(
         container_env["GAIA2_JUDGE_BASE_URL"] = judge_base_url
     if judge_api_key:
         container_env["GAIA2_JUDGE_API_KEY"] = judge_api_key
+    if judge_prompt_version:
+        container_env["GAIA2_JUDGE_PROMPT_VERSION"] = judge_prompt_version
+    if judge_extra_body:
+        # Serialize to JSON so the container entrypoint can pass it verbatim
+        # as --judge-extra-body '{"chat_template_kwargs":{"enable_thinking":true}}'.
+        # eventd.py parses it back with json.loads.
+        import json as _json
+
+        container_env["GAIA2_JUDGE_EXTRA_BODY"] = _json.dumps(judge_extra_body)
     if base_url:
         from .container_env import detect_profile
 
         for key in detect_profile(image).base_url_keys:
             container_env[key] = base_url
+
+    # Extend no_proxy with any remote agent/judge hosts so the in-container
+    # OpenClaw MITM proxy doesn't tunnel cross-node HTTP calls. localhost
+    # variants are always implicitly excluded — they're already in the
+    # downstream no_proxy seed.
+    remote_hosts = _hosts_from_urls(base_url, judge_base_url)
+    if remote_hosts:
+        no_proxy_value = ",".join(["localhost", "127.0.0.1", "::1", *remote_hosts])
+        container_env["no_proxy"] = no_proxy_value
+        container_env["NO_PROXY"] = no_proxy_value
+
     return container_env
+
+
+def _hosts_from_urls(*urls: str | None) -> list[str]:
+    """Extract distinct non-localhost hostnames from the given URLs.
+
+    Returns an empty list if all URLs point at localhost (or are unparseable).
+    Preserves first-seen order across inputs.
+    """
+    from urllib.parse import urlparse
+
+    seen: set[str] = set()
+    out: list[str] = []
+    local = {"localhost", "127.0.0.1", "::1"}
+    for url in urls:
+        if not url:
+            continue
+        url = url.strip()
+        if not url:
+            continue
+        parsed = urlparse(url)
+        host = parsed.hostname
+        if not host:
+            continue
+        if host in local:
+            continue
+        if host in seen:
+            continue
+        seen.add(host)
+        out.append(host)
+    return out
 
 
 def _load_subset_ids(subset_path: str) -> set[str]:
@@ -562,6 +625,8 @@ def _load_dataset_scenarios(
     *,
     recursive: bool = True,
     subset: str | None = None,
+    shard_id: int = 0,
+    num_shards: int = 1,
 ) -> tuple[list[Path], Path | None, str | None]:
     """Expand a dataset path into concrete scenario files.
 
@@ -576,6 +641,10 @@ def _load_dataset_scenarios(
 
     If *subset* is provided, only scenarios whose ID appears in the subset
     manifest are included.
+
+    If ``num_shards > 1``, the final scenario list is partitioned round-robin
+    on sorted paths and only ``shard_id``'s slice is returned (applied AFTER
+    ``subset`` and ``limit``).
     """
     dataset_path = Path(dataset)
     scenario_paths: list[Path]
@@ -622,6 +691,24 @@ def _load_dataset_scenarios(
 
     if limit is not None:
         scenario_paths = scenario_paths[:limit]
+
+    if num_shards > 1:
+        from .sharding import select_shard
+
+        scenario_paths = select_shard(
+            scenario_paths, shard_id=shard_id, num_shards=num_shards
+        )
+        logger.info(
+            "Shard %d/%d: %d scenarios assigned to this shard",
+            shard_id,
+            num_shards,
+            len(scenario_paths),
+        )
+    elif shard_id != 0:
+        # Catch misconfiguration early: shard_id=N with num_shards=1 is nonsensical.
+        raise click.UsageError(
+            f"--shard-id={shard_id} requires --num-shards > 1 (got {num_shards})"
+        )
 
     return scenario_paths, dataset_root, tmpdir
 
@@ -982,7 +1069,12 @@ def _run_scenarios_sequential(
     dataset_root: Path | None = None,
 ) -> RunStats:
     stats = RunStats()
-    launcher = LocalLauncher(runtime=execution_config.runtime)
+    if execution_config.runtime == "apptainer":
+        launcher: ContainerLauncher = ApptainerLauncher(
+            image_sif=execution_config.image_sif
+        )
+    else:
+        launcher = LocalLauncher(runtime=execution_config.runtime)
 
     runner = ContainerRunner(
         launcher=launcher,
@@ -1343,9 +1435,14 @@ def _build_execution_config(
     judge_provider: str | None,
     judge_base_url: str | None,
     judge_api_key: str | None,
+    judge_prompt_version: str | None = None,
+    judge_extra_body: dict | None = None,
     volumes: tuple[str, ...],
     notification_mode: str,
     time_speed: float | None,
+    idle_timeout: float | None = None,
+    image_sif: str | None = None,
+    stuck_loop_min_tool_calls: int = 0,
 ) -> tuple[
     ScenarioExecutionConfig,
     str | None,
@@ -1355,6 +1452,11 @@ def _build_execution_config(
     str | None,
 ]:
     """Resolve CLI config into a concrete ScenarioExecutionConfig."""
+    # Fall back to the env var for the direct run/run-batch paths (the TOML
+    # run-config path passes config.judge.prompt_version explicitly).
+    judge_prompt_version = (
+        judge_prompt_version or os.environ.get("GAIA2_JUDGE_PROMPT_VERSION") or None
+    )
     resolved_provider, resolved_model = _resolve_agent_config(image, provider, model)
     (
         resolved_judge_model,
@@ -1376,10 +1478,13 @@ def _build_execution_config(
             thinking,
             notification_mode,
             time_speed,
+            idle_timeout=idle_timeout,
             judge_model=resolved_judge_model,
             judge_provider=resolved_judge_provider,
             judge_base_url=resolved_judge_base_url,
             judge_api_key=resolved_judge_api_key,
+            judge_prompt_version=judge_prompt_version,
+            judge_extra_body=judge_extra_body,
         ),
         provider=resolved_provider,
         model=resolved_model,
@@ -1389,6 +1494,8 @@ def _build_execution_config(
         judge_base_url=resolved_judge_base_url,
         extra_volumes=volumes,
         launcher_type=runtime,
+        image_sif=image_sif,
+        stuck_loop_min_tool_calls=stuck_loop_min_tool_calls,
     )
 
     return (
@@ -1522,6 +1629,23 @@ def _load_run_config_dataset_scenarios(
     config: RunnerTomlConfig,
 ) -> tuple[list[Path], Path | None, str | None, Path | None]:
     """Resolve a run-config dataset target into concrete scenario paths."""
+    shard_id = config.run.shard_id
+    num_shards = config.run.num_shards
+
+    def _maybe_shard(paths: list[Path]) -> list[Path]:
+        if num_shards <= 1:
+            return paths
+        from .sharding import select_shard
+
+        sharded = select_shard(paths, shard_id=shard_id, num_shards=num_shards)
+        logger.info(
+            "Shard %d/%d: %d scenarios assigned to this shard",
+            shard_id,
+            num_shards,
+            len(sharded),
+        )
+        return sharded
+
     if config.target.is_hf_dataset:
         from gaia2_runner.hf_dataset import download_hf_dataset
 
@@ -1536,7 +1660,7 @@ def _load_run_config_dataset_scenarios(
                 recursive=True,
                 subset=config.target.subset_manifest,
             )
-            return scenario_paths, resolved_root, None, dataset_root
+            return _maybe_shard(scenario_paths), resolved_root, None, dataset_root
 
         missing_splits = [
             split
@@ -1564,7 +1688,7 @@ def _load_run_config_dataset_scenarios(
         if config.target.limit is not None:
             scenario_paths = scenario_paths[: config.target.limit]
 
-        return scenario_paths, dataset_root, None, dataset_root
+        return _maybe_shard(scenario_paths), dataset_root, None, dataset_root
 
     if not config.target.dataset_root:
         raise click.UsageError("Dataset config is missing [target].dataset_root")
@@ -1578,7 +1702,7 @@ def _load_run_config_dataset_scenarios(
             recursive=config.target.recursive,
             subset=config.target.subset_manifest,
         )
-        return scenario_paths, resolved_root, tmpdir, None
+        return _maybe_shard(scenario_paths), resolved_root, tmpdir, None
 
     missing_splits = [
         split for split in config.target.splits if not (dataset_root / split).is_dir()
@@ -1604,7 +1728,7 @@ def _load_run_config_dataset_scenarios(
     if config.target.limit is not None:
         scenario_paths = scenario_paths[: config.target.limit]
 
-    return scenario_paths, dataset_root, None, None
+    return _maybe_shard(scenario_paths), dataset_root, None, None
 
 
 def _normalize_hf_cli_splits(splits: str | None) -> list[str] | None:
@@ -1691,6 +1815,8 @@ def _print_run_config_summary(
         )
     )
     click.echo(f"Judge: {config.judge.provider}/{config.judge.model}")
+    if config.judge.prompt_version:
+        click.echo(f"Judge prompts: {config.judge.prompt_version}")
     click.echo(f"Concurrency: {config.run.concurrency}")
     click.echo(f"Pass@: {config.run.pass_at}")
     if effective_retry:
@@ -1811,6 +1937,14 @@ def main(env_file: Path | None) -> None:
     help="Time speed multiplier for fast-forward mode (e.g. 5 = 5x faster). "
     "Speeds up ENV event delays in time scenarios.",
 )
+@click.option(
+    "--idle-timeout",
+    default=None,
+    type=float,
+    help="Seconds of no agent events before the in-container daemon shuts down "
+    "with status=error. Default (when unset) is 300s. Raise for agents that "
+    "legitimately go quiet between tool calls.",
+)
 def run(
     scenario: str,
     image: str,
@@ -1832,6 +1966,7 @@ def run(
     log_level: str,
     notification_mode: str,
     time_speed: float | None,
+    idle_timeout: float | None,
 ) -> None:
     """Run a single scenario in a container and grade the result."""
     (
@@ -1858,6 +1993,7 @@ def run(
         volumes=volumes,
         notification_mode=notification_mode,
         time_speed=time_speed,
+        idle_timeout=idle_timeout,
     )
     setup_logging(log_level)
 
@@ -2128,10 +2264,31 @@ def serve(output_dir: str, port: int | None, interval: int, log_level: str) -> N
     "Speeds up ENV event delays in time scenarios.",
 )
 @click.option(
+    "--idle-timeout",
+    default=None,
+    type=float,
+    help="Seconds of no agent events before the in-container daemon shuts down "
+    "with status=error. Default (when unset) is 300s. Raise for agents that "
+    "legitimately go quiet between tool calls.",
+)
+@click.option(
     "--subset",
     default=None,
     type=click.Path(exists=True),
     help="Path to a subset manifest JSON. Only scenarios listed will be run.",
+)
+@click.option(
+    "--shard-id",
+    default=0,
+    type=int,
+    help="0-based index of this shard. Use with --num-shards to split the "
+    "dataset across K parallel runners (round-robin on sorted scenario IDs).",
+)
+@click.option(
+    "--num-shards",
+    default=1,
+    type=int,
+    help="Total number of shards. Default 1 = no sharding (current behavior).",
 )
 def run_dataset(
     dataset: str,
@@ -2161,7 +2318,10 @@ def run_dataset(
     non_recursive: bool,
     notification_mode: str,
     time_speed: float | None,
+    idle_timeout: float | None,
     subset: str | None,
+    shard_id: int,
+    num_shards: int,
 ) -> None:
     """Run multiple scenarios from a dataset directory, JSONL file, or HuggingFace dataset."""
     (
@@ -2188,6 +2348,7 @@ def run_dataset(
         volumes=volumes,
         notification_mode=notification_mode,
         time_speed=time_speed,
+        idle_timeout=idle_timeout,
     )
     setup_logging(log_level)
 
@@ -2223,7 +2384,12 @@ def run_dataset(
     }
 
     scenario_paths, dataset_root, tmpdir = _load_dataset_scenarios(
-        effective_dataset, limit, recursive=not non_recursive, subset=subset
+        effective_dataset,
+        limit,
+        recursive=not non_recursive,
+        subset=subset,
+        shard_id=shard_id,
+        num_shards=num_shards,
     )
     try:
         _execute_dataset_selection(
@@ -2303,9 +2469,14 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             judge_provider=config.judge.provider,
             judge_base_url=config.judge.base_url,
             judge_api_key=config.judge.api_key,
+            judge_prompt_version=config.judge.prompt_version,
+            judge_extra_body=config.judge.extra_body,
             volumes=config.agent.volumes,
             notification_mode=config.run.notification_mode,
             time_speed=config.run.time_speed,
+            idle_timeout=config.run.idle_timeout,
+            image_sif=config.agent.image_sif,
+            stuck_loop_min_tool_calls=config.run.stuck_loop_min_tool_calls,
         )
 
         run_config_base: JsonDict = {
@@ -2369,9 +2540,14 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             judge_provider=config.judge.provider,
             judge_base_url=config.judge.base_url,
             judge_api_key=config.judge.api_key,
+            judge_prompt_version=config.judge.prompt_version,
+            judge_extra_body=config.judge.extra_body,
             volumes=config.agent.volumes,
             notification_mode=config.run.notification_mode,
             time_speed=config.run.time_speed,
+            idle_timeout=config.run.idle_timeout,
+            image_sif=config.agent.image_sif,
+            stuck_loop_min_tool_calls=config.run.stuck_loop_min_tool_calls,
         )
 
         run_config_base = {
@@ -2417,6 +2593,24 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
     finally:
         if tmpdir:
             shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+@main.command("aggregate")
+@click.option(
+    "--output-dir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+    help="Root directory containing shard_*_of_* subdirs to aggregate.",
+)
+def aggregate(output_dir: str) -> None:
+    """Merge per-shard results.jsonl files into a top-level results.jsonl."""
+    from gaia2_runner.aggregate import aggregate_shards
+
+    summary = aggregate_shards(Path(output_dir))
+    click.echo(
+        f"aggregated {summary['num_results']} results from "
+        f"{summary['num_shards_with_results']}/{summary['num_shards']} shards"
+    )
 
 
 if __name__ == "__main__":

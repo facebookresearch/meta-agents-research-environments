@@ -181,3 +181,12 @@ workspace*
 **/node_modules
 benchmark_stats.json
 gaia2_results
+
+# Large OCI image archives (built locally, kept out of the repo)
+gaia2-cli/gaia2-images.tar
+gaia2-cli/gaia2-images/
+
+# Fan-out artifacts: per-shard slurm logs, runner output dirs, rendered TOMLs
+gaia2-cli/runner/examples/**/*.slurm-logs/
+gaia2-cli/runner/examples/**/*.run/
+gaia2-cli/runner/examples/**/*.shard_*_of_*.toml

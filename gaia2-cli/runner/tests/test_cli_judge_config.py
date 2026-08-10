@@ -11,6 +11,7 @@ import json
 import click
 import pytest
 from gaia2_runner.cli import (
+    _build_container_env,
     _resolve_agent_config,
     _resolve_judge_config,
     _save_run_config,
@@ -139,6 +140,32 @@ class TestSaveRunConfig:
         assert config["dataset_cache_dir"] == str(cache_dir.resolve())
         assert config["splits"] == ["search"]
 
+
+class TestJudgePromptVersion:
+    def test_prompt_version_propagates_to_container_env(self, monkeypatch) -> None:
+        monkeypatch.delenv("GAIA2_JUDGE_PROMPT_VERSION", raising=False)
+        env = _build_container_env(
+            "localhost/gaia2-oc:latest",
+            base_url=None,
+            thinking="off",
+            judge_model="gpt-oss-120b",
+            judge_provider="openai-compat",
+            judge_prompt_version="omnigaia",
+        )
+        assert env["GAIA2_JUDGE_PROMPT_VERSION"] == "omnigaia"
+
+    def test_no_prompt_version_omits_env(self) -> None:
+        env = _build_container_env(
+            "localhost/gaia2-oc:latest",
+            base_url=None,
+            thinking="off",
+            judge_model="gpt-oss-120b",
+            judge_provider="openai-compat",
+        )
+        assert "GAIA2_JUDGE_PROMPT_VERSION" not in env
+
+
+class TestSaveRunConfigExtra:
     def test_preserves_existing_num_scenarios_for_retry(self, tmp_path) -> None:
         _save_run_config(
             output_dir=str(tmp_path),
