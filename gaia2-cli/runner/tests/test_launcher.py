@@ -4,11 +4,16 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
 import pytest
-from gaia2_runner.launcher import LocalLauncher
+from gaia2_runner.launcher import (
+    ApptainerLauncher,
+    LocalLauncher,
+    _write_private_file,
+)
 
 
 def _env_map(args: list[str]) -> dict[str, str]:
@@ -252,6 +257,118 @@ def test_build_provider_env_uses_openai_api_key_fallback(
     assert ("API_KEY", "openai-key") in pairs
     assert ("OPENAI_API_KEY", "openai-key") in pairs
     assert "pulling from OPENAI_API_KEY" in caplog.text
+
+
+def _apptainer_launcher(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> tuple[ApptainerLauncher, Path, dict[str, list[str]]]:
+    """An ApptainerLauncher with scratch redirected under tmp_path."""
+    sif = tmp_path / "image.sif"
+    sif.write_bytes(b"not-a-real-sif")
+    scratch_root = tmp_path / "scratch"
+    captured: dict[str, list[str]] = {}
+
+    monkeypatch.delenv("GAIA2_OC_SIF_STAGE_LOCAL", raising=False)
+    monkeypatch.delenv("GAIA2_PROXY_RELAY_URL", raising=False)
+    monkeypatch.delenv("GAIA2_CA_BUNDLE", raising=False)
+    monkeypatch.setattr(
+        ApptainerLauncher,
+        "_instance_scratch_dir",
+        staticmethod(lambda container_id: scratch_root / container_id),
+    )
+
+    launcher = ApptainerLauncher(image_sif=str(sif))
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured["args"] = args
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    class _FakePopen:
+        def __init__(self, args: list[str], **kwargs: object) -> None:
+            captured["popen"] = args
+
+    monkeypatch.setattr(launcher, "_run", fake_run)
+    monkeypatch.setattr("gaia2_runner.launcher.subprocess.Popen", _FakePopen)
+    return launcher, scratch_root, captured
+
+
+def test_apptainer_env_file_is_owner_only_and_not_on_command_line(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    scenario_path = tmp_path / "scenario.json"
+    scenario_path.write_text("{}")
+    launcher, scratch_root, captured = _apptainer_launcher(monkeypatch, tmp_path)
+
+    container_id = launcher.launch(
+        "localhost/gaia2-oc:latest",
+        str(scenario_path),
+        provider="anthropic",
+        model="some-model",
+        api_key="sk-super-secret",
+    )
+
+    env_file = scratch_root / container_id / "secrets" / "env.sh"
+    assert env_file.is_file()
+    # The credentials live in the env file...
+    assert "sk-super-secret" in env_file.read_text()
+    # ...which must be readable by nobody but the launching UID.
+    assert env_file.stat().st_mode & 0o777 == 0o600
+    assert env_file.parent.stat().st_mode & 0o777 == 0o700
+    # ...and must never leak onto an argv visible in `ps`.
+    assert not any("sk-super-secret" in arg for arg in captured["args"])
+    assert not any("sk-super-secret" in arg for arg in captured["popen"])
+    assert f"{env_file}:/var/gaia2/env.sh:ro" in captured["args"]
+
+
+def test_write_private_file_tightens_preexisting_loose_perms(tmp_path: Path) -> None:
+    stale = tmp_path / "secrets" / "env.sh"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("export API_KEY=old\n")
+    stale.chmod(0o644)
+    stale.parent.chmod(0o755)
+
+    _write_private_file(stale, "export API_KEY=new\n")
+
+    assert stale.stat().st_mode & 0o777 == 0o600
+    assert stale.parent.stat().st_mode & 0o777 == 0o700
+    assert stale.read_text() == "export API_KEY=new\n"
+
+
+def test_write_private_file_ignores_permissive_umask(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    old_umask = os.umask(0o000)
+    try:
+        _write_private_file(tmp_path / "d" / "env.sh", "export API_KEY=k\n")
+    finally:
+        os.umask(old_umask)
+
+    assert (tmp_path / "d" / "env.sh").stat().st_mode & 0o777 == 0o600
+    assert (tmp_path / "d").stat().st_mode & 0o777 == 0o700
+
+
+def test_apptainer_stop_removes_env_file_even_when_scratch_kept(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    scenario_path = tmp_path / "scenario.json"
+    scenario_path.write_text("{}")
+    launcher, scratch_root, _ = _apptainer_launcher(monkeypatch, tmp_path)
+    monkeypatch.setenv("GAIA2_OC_KEEP_SCRATCH", "1")
+
+    container_id = launcher.launch(
+        "localhost/gaia2-oc:latest",
+        str(scenario_path),
+        provider="anthropic",
+        api_key="sk-super-secret",
+    )
+    env_file = scratch_root / container_id / "secrets" / "env.sh"
+    assert env_file.is_file()
+
+    launcher.stop(container_id)
+
+    assert not env_file.exists()
+    # Scratch itself is kept for debugging.
+    assert (scratch_root / container_id).is_dir()
 
 
 def test_build_provider_env_skips_agent_env_for_oracle() -> None:

@@ -162,15 +162,38 @@ def _discover_scenario_ids(output_dir: Path) -> list[str]:
     A scenario may be in progress before ``result.json`` exists, so discovery
     must consider early-written artifacts like ``trace.jsonl`` and
     ``daemon_status.json`` as well.
+
+    If ``results.jsonl`` exists at the top level, restrict the result to the
+    scenarios referenced by that file. This keeps stale directories from
+    previous runs (reused ``output_dir``) out of the viewer.
     """
-    scenario_ids = {
+    discovered = {
         str(path.parent.relative_to(output_dir))
         for path in output_dir.rglob("*")
         if path.is_file()
         and path.name in _SCENARIO_DISCOVERY_FILES
         and path.parent != output_dir
     }
-    return sorted(scenario_ids)
+
+    results_file = output_dir / "results.jsonl"
+    if results_file.is_file():
+        allowed: set[str] = set()
+        with results_file.open() as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                sid = row.get("scenario_id") or row.get("scenario")
+                if isinstance(sid, str):
+                    allowed.add(sid)
+        if allowed:
+            discovered &= allowed
+
+    return sorted(discovered)
 
 
 def _result_status(result: dict[str, Any], *, has_result: bool) -> tuple[str, str]:

@@ -53,10 +53,12 @@ class ContainerRunner:
         launcher: ContainerLauncher,
         image: str,
         adapter_port: int = 8090,
+        stuck_loop_min_tool_calls: int = 0,
     ) -> None:
         self.launcher = launcher
         self.image = image
         self.adapter_port = adapter_port
+        self.stuck_loop_min_tool_calls = stuck_loop_min_tool_calls
         # Use a session that bypasses proxy for localhost (the adapter runs
         # inside the container on 127.0.0.1). Without this, inherited proxy
         # env vars can route adapter requests through an outbound proxy and
@@ -209,6 +211,11 @@ class ContainerRunner:
             if container_id and artifact_dir:
                 self._extract_daemon_logs(container_id, artifact_dir)
 
+            # Extract the LLM trace early — the no-judgment classifier below
+            # can use its entry count to distinguish model-loop failures from
+            # infra hangs.
+            self._extract_trace_file(container_id, artifact_dir)
+
             daemon_status_data = self._last_daemon_status
             if daemon_status_data is None and artifact_dir:
                 daemon_status_data = self._read_extracted_daemon_status(artifact_dir)
@@ -245,9 +252,35 @@ class ContainerRunner:
                 # No judgment — the daemon never saw a turn boundary
                 # (no send_message_to_user in events.jsonl), or it
                 # hit the idle timeout waiting for agent activity.
+                #
+                # Optionally split this into model-failure vs infra-error by
+                # tool-call count: a long sequence of LLM calls with no turn
+                # boundary is a stuck tool loop (real model FAIL); a short one
+                # is likely an adapter/daemon hiccup before the agent got going
+                # (infra ERROR). Opt in with stuck_loop_min_tool_calls > 0; at
+                # the default of 0 the trace is never read and every
+                # no-judgment outcome stays an ERROR.
                 ds = daemon_status.get("status", "unknown")
                 num_events = len(convert_events_jsonl(events_raw))
-                if ds == "error":
+                threshold = self.stuck_loop_min_tool_calls
+                classify_stuck_loop = threshold > 0
+                trace_call_count = (
+                    self._count_trace_calls(artifact_dir) if classify_stuck_loop else 0
+                )
+                stuck_loop = (
+                    classify_stuck_loop
+                    and ds == "error"
+                    and trace_call_count >= threshold
+                )
+                if stuck_loop:
+                    error_msg = ""
+                elif ds == "error" and classify_stuck_loop:
+                    error_msg = (
+                        f"Daemon error: no turn boundary detected "
+                        f"({trace_call_count} LLM calls, below stuck-loop "
+                        f"threshold of {threshold}; likely adapter/daemon issue)"
+                    )
+                elif ds == "error":
                     error_msg = (
                         f"Daemon error: no turn boundary detected "
                         f"({num_events} tool calls, idle timeout or agent stuck)"
@@ -261,12 +294,35 @@ class ContainerRunner:
                     error_msg = (
                         f"No judgment (daemon status: {ds}, {num_events} agent events)"
                     )
-                logger.warning(
-                    "No in-container judgment for %s: %s",
-                    scenario_id,
-                    error_msg,
-                )
-                if timed_out and scenario_duration is not None:
+                if not stuck_loop:
+                    logger.warning(
+                        "No in-container judgment for %s: %s",
+                        scenario_id,
+                        error_msg,
+                    )
+                if stuck_loop:
+                    # Reclassify as FAIL: agent made it through `threshold`+
+                    # tool calls without producing a turn boundary → runaway
+                    # tool-loop, a real model failure.
+                    result = {
+                        "scenario_id": scenario_id,
+                        "success": False,
+                        "reward": 0.0,
+                        "num_agent_events": num_events,
+                        "agent_response": agent_response,
+                        "trace_call_count": trace_call_count,
+                        "failure_reasons": [
+                            f"Stuck tool loop: no turn boundary after "
+                            f"{trace_call_count} LLM calls "
+                            f"(>= threshold {threshold})"
+                        ],
+                    }
+                    logger.info(
+                        "Stuck tool loop → FAIL (%d LLM calls >= threshold %d)",
+                        trace_call_count,
+                        threshold,
+                    )
+                elif timed_out and scenario_duration is not None:
                     # Agent exceeded the scenario's declared duration
                     # (e.g. 330s for time scenarios) plus a 60s buffer.
                     # This is a model failure, not an infra error.
@@ -287,20 +343,35 @@ class ContainerRunner:
                         int(scenario_duration),
                     )
                 else:
+                    # Look in the extracted OpenClaw logs for an explicit
+                    # `embedded_run_failover_decision` event. When present,
+                    # OpenClaw itself decided to abort the run — we know
+                    # exactly why (timeout, provider error, etc.) instead
+                    # of guessing.
+                    failover = self._read_openclaw_failover(artifact_dir)
+                    if failover is not None:
+                        reason = failover.get("reason") or "unknown"
+                        decision = failover.get("decision") or "unknown"
+                        error_msg = (
+                            f"OpenClaw embedded-run failover: "
+                            f"reason={reason}, decision={decision} "
+                            f"(stage={failover.get('stage')})"
+                        )
                     result = {
                         "scenario_id": scenario_id,
                         "success": None,
                         "error": error_msg,
                         "num_agent_events": num_events,
                         "agent_response": agent_response,
+                        "openclaw_failover": failover,
                     }
+                    if classify_stuck_loop:
+                        result["trace_call_count"] = trace_call_count
             if timed_out:
                 result["timed_out"] = True
                 result["timeout_seconds"] = effective_timeout
             result["daemon_status"] = daemon_status
             result["scenario_file"] = scenario_file
-
-            self._extract_trace_file(container_id, artifact_dir)
 
             if output_dir:
                 self._save_artifacts(
@@ -337,6 +408,23 @@ class ContainerRunner:
                 "scenario_file": scenario_file,
             }
             if output_dir:
+                # Try to extract daemon logs even on early failure (e.g.
+                # adapter-not-ready timeout). Without this the artifact dir
+                # has no entrypoint.log / adapter.log / openclaw.log and
+                # the failure is undiagnosable. Best-effort: container may
+                # already be dead.
+                if container_id:
+                    try:
+                        early_artifact_dir = self._ensure_artifact_dir(
+                            output_dir, scenario_id
+                        )
+                        if early_artifact_dir:
+                            self._extract_daemon_logs(container_id, early_artifact_dir)
+                    except Exception:
+                        logger.warning(
+                            "Failed to extract daemon logs after error",
+                            exc_info=True,
+                        )
                 self._save_artifacts(
                     output_dir=output_dir,
                     scenario_id=scenario_id,
@@ -399,7 +487,18 @@ class ContainerRunner:
         start_time = (
             scenario_data.get("metadata", {}).get("definition", {}).get("start_time")
         )
-        if start_time and "FAKETIME" not in effective_env:
+        # GAIA2_DISABLE_FAKETIME=1 suppresses auto-injection (passthrough mode:
+        # libfaketime hijacks Node's setTimeout, which broke TLS pre-warm and
+        # made the MITM cert-gen race the agent's chunks-watchdog).
+        disable_faketime = os.environ.get("GAIA2_DISABLE_FAKETIME", "").strip() in (
+            "1",
+            "true",
+            "True",
+        )
+        if disable_faketime:
+            # Propagate into container env so /opt/gaia2-init-entrypoint.sh also skips its own auto-detection.
+            effective_env["GAIA2_DISABLE_FAKETIME"] = "1"
+        if start_time and "FAKETIME" not in effective_env and not disable_faketime:
             dt = datetime.fromtimestamp(float(start_time), tz=timezone.utc)
             effective_env["FAKETIME"] = dt.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -506,6 +605,67 @@ class ContainerRunner:
             logger.info("Extracted trace: %s", trace_path)
         except Exception:
             logger.debug("No trace file in container (no LLM calls?)")
+
+    @staticmethod
+    def _count_trace_calls(artifact_dir: Path | None) -> int:
+        """Count LLM calls recorded in the extracted trace.jsonl.
+
+        Returns 0 if the trace is missing or unreadable. Used by the
+        no-judgment classifier to distinguish model-loop failures
+        (many calls) from infra hangs (few/no calls).
+        """
+        if not artifact_dir:
+            return 0
+        trace_path = artifact_dir / "trace.jsonl"
+        if not trace_path.exists():
+            return 0
+        try:
+            with open(trace_path) as f:
+                return sum(1 for _ in f)
+        except OSError:
+            return 0
+
+    @staticmethod
+    def _read_openclaw_failover(artifact_dir: Path | None) -> dict | None:
+        """Find the last embedded_run_failover_decision event in the logs.
+
+        OpenClaw emits this structured event whenever its internal
+        embedded-run controller decides to abort a run (timeout,
+        provider error, etc.). When the event is present we know
+        the run failed for an explicit, named reason instead of
+        guessing from secondary symptoms. Returns None if no event
+        is present in the pino-managed openclaw.log.
+        """
+        if not artifact_dir:
+            return None
+        oc_log = artifact_dir / "openclaw.log"
+        if oc_log.exists():
+            try:
+                last = None
+                with open(oc_log) as f:
+                    for line in f:
+                        if "embedded_run_failover_decision" not in line:
+                            continue
+                        try:
+                            j = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        msg = j.get("1")
+                        if isinstance(msg, dict) and msg.get("event") == (
+                            "embedded_run_failover_decision"
+                        ):
+                            last = msg
+                if last is not None:
+                    return {
+                        "reason": last.get("failoverReason"),
+                        "decision": last.get("decision"),
+                        "stage": last.get("stage"),
+                        "provider": last.get("provider"),
+                        "model": last.get("model"),
+                    }
+            except OSError:
+                pass
+        return None
 
     def _extract_user_task(self, scenario_data: dict[str, Any]) -> str | None:
         """Extract the initial user task message from the scenario JSON.
@@ -912,6 +1072,7 @@ class ContainerRunner:
 
         Copies:
         - ``/tmp/gaia2-eventd.log`` → ``eventd.log``
+        - ``/tmp/gaia2-adapter.log`` → ``adapter.log``
         - ``/tmp/entrypoint.log`` → ``entrypoint.log``
         - ``/var/gaia2/state/judgments.jsonl`` → ``daemon_judgments.jsonl``
         - ``/var/gaia2/state/user_details.json`` → ``user_details.json``
@@ -921,6 +1082,7 @@ class ContainerRunner:
         """
         for src, dst in [
             ("/tmp/gaia2-eventd.log", "eventd.log"),
+            ("/tmp/gaia2-adapter.log", "adapter.log"),
             ("/tmp/entrypoint.log", "entrypoint.log"),
             ("/var/gaia2/state/judgments.jsonl", "daemon_judgments.jsonl"),
             ("/var/gaia2/state/user_details.json", "user_details.json"),
@@ -930,5 +1092,8 @@ class ContainerRunner:
         ]:
             try:
                 self.launcher.copy_from(container_id, src, str(artifact_dir / dst))
-            except Exception:
-                logger.debug("Could not extract %s from container", src)
+                logger.debug("Extracted %s -> %s", src, dst)
+            except Exception as e:
+                # Not all images produce all of these files (e.g. the judge
+                # state files only exist for judged runs), so a miss is normal.
+                logger.debug("Could not extract %s -> %s: %r", src, dst, e)
