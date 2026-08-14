@@ -7,7 +7,10 @@ repos:
     hooks:
       - id: check-ast
       - id: check-merge-conflict
+      # Resolved uv lock files legitimately exceed the hook's 500 KB default
+      # (already-tracked ones here range from 314 KB to 721 KB).
       - id: check-added-large-files
+        exclude: (^|/)uv\.lock$
       - id: forbid-new-submodules
       - id: check-case-conflict
       - id: check-executables-have-shebangs
