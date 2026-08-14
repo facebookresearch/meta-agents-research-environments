@@ -53,6 +53,28 @@ def test_create_litellm_engine_normalizes_openai_compatible_requests(
     ]
 
 
+@pytest.mark.parametrize("extra_body", [None, {"chat_template_kwargs": {"x": True}}])
+def test_create_litellm_engine_forwards_extra_body(monkeypatch, extra_body) -> None:
+    calls: list[dict] = []
+    monkeypatch.setitem(
+        sys.modules,
+        "litellm",
+        SimpleNamespace(
+            completion=lambda **kw: (
+                calls.append(kw) or _mock_completion_response("hello")
+            )
+        ),
+    )
+
+    engine = create_litellm_engine(
+        model="judge-model", provider="openai", validate=False, extra_body=extra_body
+    )
+    engine([{"role": "user", "content": "hi"}])
+
+    assert calls[0].get("extra_body") == extra_body
+    assert ("extra_body" in calls[0]) is (extra_body is not None)
+
+
 def test_create_litellm_engine_raises_rate_limit_error(monkeypatch) -> None:
     def completion(**kwargs):
         raise RuntimeError("429 Too Many Requests")

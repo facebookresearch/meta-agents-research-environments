@@ -369,11 +369,20 @@ class LLMChecker:
 # ---------------------------------------------------------------------------
 
 
-def build_llm_checkers(engine: Callable, num_votes: int = 1) -> dict[str, LLMChecker]:
-    """Build all LLM checker instances."""
+def build_llm_checkers(
+    engine: Callable,
+    num_votes: int = 1,
+    *,
+    prompt_template_overrides: dict | None = None,
+) -> dict[str, LLMChecker]:
+    """Build all LLM checker instances.
+
+    ``prompt_template_overrides`` maps a ``SoftCheckerType`` value to the
+    ``LLMFunctionTemplates`` to use for that checker instead of the default.
+    """
     from gaia2_core.judge import prompts as P
 
-    return {
+    checkers = {
         SoftCheckerType.signature_checker.value: LLMChecker(
             engine, P.SIGNATURE_CHECKER_TEMPLATES, 1, "[[True]]", "[[False]]"
         ),
@@ -414,6 +423,12 @@ def build_llm_checkers(engine: Callable, num_votes: int = 1) -> dict[str, LLMChe
             "[[False]]",
         ),
     }
+    for key, templates in (prompt_template_overrides or {}).items():
+        old = checkers[key]
+        checkers[key] = LLMChecker(
+            engine, templates, old.num_votes, old.success_str, old.failure_str
+        )
+    return checkers
 
 
 # ---------------------------------------------------------------------------

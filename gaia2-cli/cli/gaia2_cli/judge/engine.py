@@ -37,8 +37,13 @@ def create_litellm_engine(
     max_retries: int = _DEFAULT_MAX_RETRIES,
     validate: bool = True,
     api_key: str | None = None,
+    extra_body: dict | None = None,
 ) -> Callable | None:
-    """Create an LLM engine using litellm."""
+    """Create an LLM engine using litellm.
+
+    ``extra_body`` is forwarded verbatim to ``litellm.completion`` for
+    provider-specific request-body extensions; ``None`` (default) is a no-op.
+    """
     try:
         import litellm  # noqa: F811
     except ImportError as exc:
@@ -65,14 +70,17 @@ def create_litellm_engine(
     def engine(messages: list[dict], **kwargs: Any) -> tuple[str | None, dict]:
         """Call the LLM via litellm."""
         try:
-            response = litellm.completion(
-                model=effective_model,
-                messages=messages,
-                api_base=effective_api_base,
-                api_key=api_key,
-                max_retries=max_retries,
-                temperature=0,
-            )
+            completion_kwargs: dict[str, Any] = {
+                "model": effective_model,
+                "messages": messages,
+                "api_base": effective_api_base,
+                "api_key": api_key,
+                "max_retries": max_retries,
+                "temperature": 0,
+            }
+            if extra_body is not None:
+                completion_kwargs["extra_body"] = extra_body
+            response = litellm.completion(**completion_kwargs)
             content = response.choices[0].message.content
             return content, {"model": model}
         except Exception as exc:
