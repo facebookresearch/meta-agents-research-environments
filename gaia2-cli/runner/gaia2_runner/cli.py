@@ -516,16 +516,21 @@ def _build_container_env(
     thinking: str,
     notification_mode: str = "message",
     time_speed: float | None = None,
+    idle_timeout: float | None = None,
     judge_model: str | None = None,
     judge_provider: str | None = None,
     judge_base_url: str | None = None,
     judge_api_key: str | None = None,
+    judge_prompt_version: str | None = None,
+    judge_extra_body: dict | None = None,
 ) -> dict[str, str]:
     container_env = {"THINKING": thinking}
     if notification_mode != "message":
         container_env["GAIA2_NOTIFICATION_MODE"] = notification_mode
     if time_speed is not None:
         container_env["GAIA2_TIME_SPEED"] = str(time_speed)
+    if idle_timeout is not None:
+        container_env["GAIA2_IDLE_TIMEOUT"] = str(idle_timeout)
     if judge_model:
         container_env["GAIA2_JUDGE_MODEL"] = judge_model
     if judge_provider:
@@ -534,6 +539,13 @@ def _build_container_env(
         container_env["GAIA2_JUDGE_BASE_URL"] = judge_base_url
     if judge_api_key:
         container_env["GAIA2_JUDGE_API_KEY"] = judge_api_key
+    if judge_prompt_version:
+        container_env["GAIA2_JUDGE_PROMPT_VERSION"] = judge_prompt_version
+    if judge_extra_body:
+        # Serialize to JSON so the container entrypoint can pass it verbatim
+        # as --judge-extra-body '{"chat_template_kwargs":{"enable_thinking":true}}'.
+        # eventd.py parses it back with json.loads.
+        container_env["GAIA2_JUDGE_EXTRA_BODY"] = json.dumps(judge_extra_body)
     if base_url:
         from .container_env import detect_profile
 
@@ -1343,9 +1355,12 @@ def _build_execution_config(
     judge_provider: str | None,
     judge_base_url: str | None,
     judge_api_key: str | None,
+    judge_prompt_version: str | None = None,
+    judge_extra_body: dict | None = None,
     volumes: tuple[str, ...],
     notification_mode: str,
     time_speed: float | None,
+    idle_timeout: float | None = None,
 ) -> tuple[
     ScenarioExecutionConfig,
     str | None,
@@ -1355,6 +1370,11 @@ def _build_execution_config(
     str | None,
 ]:
     """Resolve CLI config into a concrete ScenarioExecutionConfig."""
+    # Fall back to the env var for the direct run/run-batch paths (the TOML
+    # run-config path passes config.judge.prompt_version explicitly).
+    judge_prompt_version = (
+        judge_prompt_version or os.environ.get("GAIA2_JUDGE_PROMPT_VERSION") or None
+    )
     resolved_provider, resolved_model = _resolve_agent_config(image, provider, model)
     (
         resolved_judge_model,
@@ -1376,10 +1396,13 @@ def _build_execution_config(
             thinking,
             notification_mode,
             time_speed,
+            idle_timeout=idle_timeout,
             judge_model=resolved_judge_model,
             judge_provider=resolved_judge_provider,
             judge_base_url=resolved_judge_base_url,
             judge_api_key=resolved_judge_api_key,
+            judge_prompt_version=judge_prompt_version,
+            judge_extra_body=judge_extra_body,
         ),
         provider=resolved_provider,
         model=resolved_model,
@@ -1691,6 +1714,8 @@ def _print_run_config_summary(
         )
     )
     click.echo(f"Judge: {config.judge.provider}/{config.judge.model}")
+    if config.judge.prompt_version:
+        click.echo(f"Judge prompts: {config.judge.prompt_version}")
     click.echo(f"Concurrency: {config.run.concurrency}")
     click.echo(f"Pass@: {config.run.pass_at}")
     if effective_retry:
@@ -2303,9 +2328,12 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             judge_provider=config.judge.provider,
             judge_base_url=config.judge.base_url,
             judge_api_key=config.judge.api_key,
+            judge_prompt_version=config.judge.prompt_version,
+            judge_extra_body=config.judge.extra_body,
             volumes=config.agent.volumes,
             notification_mode=config.run.notification_mode,
             time_speed=config.run.time_speed,
+            idle_timeout=config.run.idle_timeout,
         )
 
         run_config_base: JsonDict = {
@@ -2369,9 +2397,12 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             judge_provider=config.judge.provider,
             judge_base_url=config.judge.base_url,
             judge_api_key=config.judge.api_key,
+            judge_prompt_version=config.judge.prompt_version,
+            judge_extra_body=config.judge.extra_body,
             volumes=config.agent.volumes,
             notification_mode=config.run.notification_mode,
             time_speed=config.run.time_speed,
+            idle_timeout=config.run.idle_timeout,
         )
 
         run_config_base = {

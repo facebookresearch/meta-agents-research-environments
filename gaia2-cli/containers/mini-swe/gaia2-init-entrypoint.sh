@@ -122,7 +122,10 @@ if [ "${GAIA2_DAEMON_DISABLE:-0}" != "1" ] && [ -f "$CUSTOM_SCENARIO" ]; then
             ${GAIA2_JUDGE_PROVIDER:+--judge-provider $GAIA2_JUDGE_PROVIDER} \
             ${GAIA2_JUDGE_BASE_URL:+--judge-base-url $GAIA2_JUDGE_BASE_URL} \
             ${GAIA2_JUDGE_API_KEY:+--judge-api-key '$GAIA2_JUDGE_API_KEY'} \
+            ${GAIA2_JUDGE_PROMPT_VERSION:+--judge-prompt-version $GAIA2_JUDGE_PROMPT_VERSION} \
+            ${GAIA2_JUDGE_EXTRA_BODY:+--judge-extra-body '$GAIA2_JUDGE_EXTRA_BODY'} \
             ${GAIA2_TIME_SPEED:+--time-speed $GAIA2_TIME_SPEED} \
+            ${GAIA2_IDLE_TIMEOUT:+--idle-timeout $GAIA2_IDLE_TIMEOUT} \
             >> /tmp/gaia2-eventd.log 2>&1 &
     "
     echo "[gaia2-init] Daemon launched (log: /tmp/gaia2-eventd.log)" >&2
