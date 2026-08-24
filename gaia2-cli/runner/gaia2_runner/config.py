@@ -28,7 +28,17 @@ CANONICAL_SPLITS: tuple[str, ...] = (
     "adaptability",
     "time",
 )
+# Splits available in per-language HF configs (e.g. facebook/omnilingual-gaia2).
+# `time` is English-only and has no translated counterpart.
+MULTILINGUAL_SPLITS: tuple[str, ...] = (
+    "execution",
+    "search",
+    "ambiguity",
+    "adaptability",
+)
 _ENV_VAR_PATTERN = re.compile(r"\$(?:[A-Za-z_][A-Za-z0-9_]*|\{[^}]+\})")
+# Language codes are `language_Script`, e.g. spa_Latn, cmn_Hans, jpn_Jpan.
+_LANGUAGE_PATTERN = re.compile(r"^[a-z]{2,3}(?:_[A-Za-z]{2,4})+$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +46,7 @@ class TargetConfig:
     scenario: str | None
     dataset_root: str | None
     dataset: str | None
+    language: str | None
     splits: tuple[str, ...]
     subset_manifest: str | None
     limit: int | None
@@ -251,9 +262,14 @@ def _resolve_secret(
     return api_key
 
 
-def _normalize_splits(value: Any) -> tuple[str, ...]:
+def _normalize_splits(value: Any, *, language: str | None = None) -> tuple[str, ...]:
+    available = MULTILINGUAL_SPLITS if language else CANONICAL_SPLITS
+
     if value is None:
-        return ()
+        # A per-language dataset has no `time` split, so "everything" is
+        # unambiguous and worth resolving eagerly: it keeps the omitted and
+        # "all" cases on one code path.
+        return available if language else ()
 
     if isinstance(value, str):
         raw = (value.strip(),)
@@ -261,16 +277,22 @@ def _normalize_splits(value: Any) -> tuple[str, ...]:
         raw = _as_string_list(value, "[target].splits")
 
     if not raw:
-        return ()
+        return available if language else ()
 
     lowered = tuple(item.lower() for item in raw)
     if lowered == ("all",):
-        return CANONICAL_SPLITS
+        return available
     if "all" in lowered:
         raise click.UsageError("[target].splits cannot combine 'all' with other splits")
 
-    unknown = sorted(set(lowered) - set(CANONICAL_SPLITS))
+    unknown = sorted(set(lowered) - set(available))
     if unknown:
+        if language and set(unknown) <= set(CANONICAL_SPLITS):
+            raise click.UsageError(
+                f"Split(s) not available for [target].language = {language!r}: "
+                f"{', '.join(unknown)}. Per-language datasets provide: "
+                f"{', '.join(MULTILINGUAL_SPLITS)}"
+            )
         raise click.UsageError(
             f"Unknown split(s) in [target].splits: {', '.join(unknown)}"
         )
@@ -316,6 +338,7 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
             "scenario",
             "dataset_root",
             "dataset",
+            "language",
             "splits",
             "subset_manifest",
             "limit",
@@ -384,7 +407,25 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         must_be_dir=True,
     )
     dataset = _as_optional_str(target_table.get("dataset"), "[target].dataset")
-    splits = _normalize_splits(target_table.get("splits"))
+    language = _as_optional_str(target_table.get("language"), "[target].language")
+    # Validate `language` before normalizing splits: a language backfills the
+    # split list, so an incompatible target must be reported here rather than
+    # surfacing as a confusing complaint about splits the user never wrote.
+    if language and scenario:
+        raise click.UsageError(
+            "[target].language cannot be used with [target].scenario"
+        )
+    if language and dataset_root:
+        raise click.UsageError(
+            "[target].language cannot be used with [target].dataset_root; it selects "
+            "a HuggingFace config and only applies to [target].dataset"
+        )
+    if language and not _LANGUAGE_PATTERN.match(language):
+        raise click.UsageError(
+            f"[target].language must be a language_Script code such as 'spa_Latn' "
+            f"or 'cmn_Hans', got {language!r}"
+        )
+    splits = _normalize_splits(target_table.get("splits"), language=language)
     subset_manifest = _resolve_path(
         _as_optional_str(
             target_table.get("subset_manifest"), "[target].subset_manifest"
@@ -422,6 +463,7 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         scenario=scenario,
         dataset_root=dataset_root,
         dataset=dataset,
+        language=language,
         splits=splits,
         subset_manifest=subset_manifest,
         limit=limit,

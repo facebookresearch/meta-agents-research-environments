@@ -73,15 +73,34 @@ names must match the server's `--served-model-name`.
 
 ## Evaluate
 
-Point the runner at the translated `dataset_root` and select the Omnilingual-GAIA2 judge
-prompts via `[judge].prompt_version`:
+Either way, select the Omnilingual-GAIA2 judge prompts via
+`[judge].prompt_version = "omnilingual-gaia2"`, then:
 
 ```bash
 gaia2-runner run-config \
-    --config gaia2-cli/runner/examples/omnilingual_gaia2.toml
+    --config gaia2-cli/runner/examples/openclaw_qwen_omnilingual_gaia2_pass3.toml
 ```
 
-See [`runner/examples/omnilingual_gaia2.toml`](../runner/examples/omnilingual_gaia2.toml).
+For the **published** dataset there is nothing to download by hand — set
+`[target].language` and the runner fetches and caches the per-language HuggingFace
+config itself:
+
+```toml
+[target]
+dataset = "facebook/omnilingual-gaia2"
+language = "spa_Latn"
+```
+
+For a corpus **you** just translated with the pipeline above, point at its output
+directory instead:
+
+```toml
+[target]
+dataset_root = "/path/to/omnilingual-gaia2/spa_Latn/data"
+splits = ["execution", "search", "ambiguity", "adaptability"]
+```
+
+See [`runner/examples/openclaw_qwen_omnilingual_gaia2_pass3.toml`](../runner/examples/openclaw_qwen_omnilingual_gaia2_pass3.toml).
 
 ## Data converters
 

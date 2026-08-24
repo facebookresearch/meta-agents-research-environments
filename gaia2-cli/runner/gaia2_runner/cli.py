@@ -350,6 +350,7 @@ def _save_run_config(
     scenario: str | None = None,
     subset: str | None = None,
     splits: list[str] | None = None,
+    language: str | None = None,
     image: str,
     runtime: str,
     provider: str | None,
@@ -415,6 +416,8 @@ def _save_run_config(
             config["subset"] = str(Path(subset).resolve())
         if splits:
             config["splits"] = list(splits)
+        if language:
+            config["language"] = language
         if num_scenarios is not None:
             previous_total = previous_config.get("num_scenarios")
             if isinstance(previous_total, int) and previous_total > num_scenarios:
@@ -1549,7 +1552,11 @@ def _load_run_config_dataset_scenarios(
         from gaia2_runner.hf_dataset import download_hf_dataset
 
         split_list = list(config.target.splits) if config.target.splits else None
-        cache_dir = download_hf_dataset(config.target.dataset, splits=split_list)
+        cache_dir = download_hf_dataset(
+            config.target.dataset,
+            splits=split_list,
+            language=config.target.language,
+        )
         dataset_root = Path(cache_dir)
 
         if not config.target.splits:
@@ -1630,7 +1637,11 @@ def _load_run_config_dataset_scenarios(
     return scenario_paths, dataset_root, None, None
 
 
-def _normalize_hf_cli_splits(splits: str | None) -> list[str] | None:
+def _normalize_hf_cli_splits(
+    splits: str | None,
+    *,
+    language: str | None = None,
+) -> list[str] | None:
     """Parse ``run-dataset --splits`` into canonical split names."""
     if splits is None:
         return None
@@ -1639,15 +1650,24 @@ def _normalize_hf_cli_splits(splits: str | None) -> list[str] | None:
     if not normalized:
         return None
 
-    from gaia2_runner.config import CANONICAL_SPLITS
+    from gaia2_runner.config import CANONICAL_SPLITS, MULTILINGUAL_SPLITS
+
+    available = MULTILINGUAL_SPLITS if language else CANONICAL_SPLITS
 
     if normalized == ["all"]:
-        return list(CANONICAL_SPLITS)
+        return list(available)
     if "all" in normalized:
         raise click.UsageError("--splits cannot combine 'all' with named splits")
 
-    unknown = sorted(set(normalized) - set(CANONICAL_SPLITS))
+    unknown = sorted(set(normalized) - set(available))
     if unknown:
+        if language and set(unknown) <= set(CANONICAL_SPLITS):
+            raise click.UsageError(
+                f"Split(s) not available for --language {language}: "
+                + ", ".join(unknown)
+                + ". Per-language datasets provide: "
+                + ", ".join(MULTILINGUAL_SPLITS)
+            )
         raise click.UsageError("Unknown split(s) for --splits: " + ", ".join(unknown))
     return list(dict.fromkeys(normalized))
 
@@ -1655,6 +1675,7 @@ def _normalize_hf_cli_splits(splits: str | None) -> list[str] | None:
 def _resolved_dataset_splits_for_metadata(
     dataset: str | None,
     splits: list[str] | tuple[str, ...] | None,
+    language: str | None = None,
 ) -> list[str] | None:
     """Return the concrete split list represented by a dataset selection."""
     if splits:
@@ -1667,9 +1688,9 @@ def _resolved_dataset_splits_for_metadata(
     if not is_hf_dataset(dataset):
         return None
 
-    from gaia2_runner.config import CANONICAL_SPLITS
+    from gaia2_runner.config import CANONICAL_SPLITS, MULTILINGUAL_SPLITS
 
-    return list(CANONICAL_SPLITS)
+    return list(MULTILINGUAL_SPLITS if language else CANONICAL_SPLITS)
 
 
 def _print_run_config_summary(
@@ -1692,6 +1713,8 @@ def _print_run_config_summary(
         click.echo("Mode: dataset")
         if config.target.dataset:
             click.echo(f"Dataset: {config.target.dataset}")
+            if config.target.language:
+                click.echo(f"Language: {config.target.language}")
         else:
             click.echo(f"Dataset root: {config.target.dataset_root}")
         if config.target.splits:
@@ -2036,6 +2059,13 @@ def serve(output_dir: str, port: int | None, interval: int, log_level: str) -> N
     default=None,
     help="Comma-separated splits to download (e.g. 'search,time' or 'all'). Only used with HuggingFace datasets.",
 )
+@click.option(
+    "--language",
+    default=None,
+    help="Language code for datasets published with one config per language, e.g. "
+    "'spa_Latn' for facebook/omnilingual-gaia2. Selects the '{language}_{split}' "
+    "config. Only used with HuggingFace datasets.",
+)
 @click.option("--image", "-i", required=True, help="Container image name")
 @click.option(
     "--runtime",
@@ -2161,6 +2191,7 @@ def serve(output_dir: str, port: int | None, interval: int, log_level: str) -> N
 def run_dataset(
     dataset: str,
     splits: str | None,
+    language: str | None,
     image: str,
     runtime: str,
     adapter_port: int,
@@ -2221,9 +2252,15 @@ def run_dataset(
     effective_dataset = dataset
     split_list: list[str] | None = None
     is_hf_source = is_hf_dataset(dataset)
+    if language and not is_hf_source:
+        raise click.UsageError(
+            "--language is only supported for HuggingFace dataset IDs"
+        )
     if is_hf_source:
-        split_list = _normalize_hf_cli_splits(splits)
-        effective_dataset = download_hf_dataset(dataset, splits=split_list)
+        split_list = _normalize_hf_cli_splits(splits, language=language)
+        effective_dataset = download_hf_dataset(
+            dataset, splits=split_list, language=language
+        )
     elif not Path(dataset).exists():
         raise click.UsageError(f"Dataset path does not exist: {dataset}")
 
@@ -2244,7 +2281,8 @@ def run_dataset(
         "health_timeout": health_timeout,
         "concurrency": concurrency,
         "limit": limit,
-        "splits": _resolved_dataset_splits_for_metadata(dataset, split_list),
+        "splits": _resolved_dataset_splits_for_metadata(dataset, split_list, language),
+        "language": language if is_hf_source else None,
     }
 
     scenario_paths, dataset_root, tmpdir = _load_dataset_scenarios(
@@ -2415,7 +2453,9 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             "splits": _resolved_dataset_splits_for_metadata(
                 config.target.dataset or config.target.dataset_root,
                 config.target.splits,
+                config.target.language,
             ),
+            "language": config.target.language,
             "image": config.agent.image,
             "runtime": config.agent.runtime,
             "provider": resolved_provider,

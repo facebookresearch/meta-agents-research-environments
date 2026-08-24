@@ -1,0 +1,71 @@
+# Template: Omnilingual-GAIA2 configuration.
+#
+# Two things distinguish this from the other templates:
+#   - `[target].language` selects the per-language HuggingFace config, so the
+#     runner downloads and caches the translated scenarios itself;
+#   - `[judge].prompt_version` selects the multilingual judge prompt overrides,
+#     without which a correct non-English answer is routinely scored as a miss.
+#
+# This template uses locally served models via vllm, serve the model before running, e.g.:
+#   vllm serve Qwen/Qwen3.6-27B --port 8000
+#
+# Then edit the model name(s) and base URL(s) to match your deployment.
+# This has been tested end-to-end with vllm 0.25.1
+
+[target]
+dataset = "facebook/omnilingual-gaia2"
+# One of: cmn_Hans, deu_Latn, fra_Latn, hin_Deva, ind_Latn, ita_Latn, jpn_Jpan, por_Latn, spa_Latn, tur_Latn.
+# Downloads to ~/.cache/gaia2/hf_datasets/, keyed per language (override the location with $GAIA2_HF_CACHE).
+# Omitting `splits` (or setting "all") runs the four translated capabilities: execution, search, ambiguity, adaptability.
+language = "spa_Latn"
+splits = ["execution"]
+
+# Smoke test; remove for the full benchmark.
+limit = 1
+
+
+[agent]
+image = "localhost/gaia2-oc:latest"
+provider = "openai-compat"
+model = "Qwen/Qwen3.6-27B"
+# Containers run with --network=host, so localhost here is the same host the model server is bound to.
+base_url = "http://localhost:8000/v1"
+# vLLM ignores the value but requires the header. Use `api_key_env` instead for endpoints that authenticate.
+api_key = "EMPTY"
+# Thinking enabled, as the paper does for open-weight agents.
+thinking = "high"
+
+[judge]
+provider = "openai-compat"
+# A second server, so judge throughput is independent of agent rollouts:
+#   vllm serve openai/gpt-oss-120b --port 8001 --served-model-name gpt-oss-120b
+#
+# `--served-model-name` matters here.
+# The judge goes through litellm, which treats a leading `openai/`
+# as a provider-routing prefix and strips it before sending.
+# A served name of `openai/gpt-oss-120b` therefore goes out as
+# `gpt-oss-120b` and the server answers 404.
+# The awkward alternative is `model = "openai/openai/gpt-oss-120b"`
+model = "openai/openai/gpt-oss-120b"
+base_url = "http://localhost:8001/v1"
+api_key = "EMPTY"
+# Multilingual checker prompts. Omit for the stock gaia2-core prompts.
+prompt_version = "omnilingual-gaia2"
+# gpt-oss-120b with `low` reasoning is the calibrated reference judge config.
+# `extra_body` is forwarded verbatim to litellm, so this lands as a top-level vllm request field.
+extra_body = { reasoning_effort = "low" }
+
+[run]
+timeout = 1200
+health_timeout = 180
+# Agent and judge have their own servers here, so this is bounded by the agent
+# server's throughput. Raise it while watching that server's queue depth.
+concurrency = 4
+# Long non-Latin rollouts idle between tool calls; the 300s default cuts them
+# off and records them as infra errors.
+idle_timeout = 600.0
+# pass@3 is the headline metric; drop to 1 while iterating to cut cost 3x.
+pass_at = 3
+# Relative paths resolve against this config file
+output_dir = "$HOME/omnilingual_gaia2/results/Qwen3.6-27B__openclaw/spa_Latn"
+log_level = "INFO"
