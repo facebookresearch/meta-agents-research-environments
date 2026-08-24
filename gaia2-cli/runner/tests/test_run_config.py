@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import click
 import pytest
 from click.testing import CliRunner
 from gaia2_runner import cli as runner_cli
@@ -63,6 +64,99 @@ log_level = "DEBUG"
     assert config.judge.api_key == "judge-secret"
     assert config.run.output_dir == str((tmp_path / "out").resolve())
     assert config.target.is_single_scenario is True
+
+
+def test_load_runner_toml_config_reads_judge_prompt_version_and_extra_body(
+    tmp_path: Path,
+) -> None:
+    _write_scenario(tmp_path / "scenario.json", "scenario_1")
+
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+scenario = "scenario.json"
+
+[agent]
+image = "localhost/gaia2-hermes:latest"
+provider = "anthropic"
+model = "agent-model"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+prompt_version = "omnilingual-gaia2"
+extra_body = { chat_template_kwargs = { enable_thinking = true } }
+
+[run]
+output_dir = "out"
+idle_timeout = 900
+""")
+
+    config = load_runner_toml_config(str(config_path))
+
+    assert config.judge.prompt_version == "omnilingual-gaia2"
+    assert config.judge.extra_body == {
+        "chat_template_kwargs": {"enable_thinking": True}
+    }
+    assert config.run.idle_timeout == 900.0
+
+
+def test_load_runner_toml_config_defaults_judge_prompt_version_to_none(
+    tmp_path: Path,
+) -> None:
+    _write_scenario(tmp_path / "scenario.json", "scenario_1")
+
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+scenario = "scenario.json"
+
+[agent]
+image = "localhost/gaia2-hermes:latest"
+provider = "anthropic"
+model = "agent-model"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+
+[run]
+output_dir = "out"
+""")
+
+    config = load_runner_toml_config(str(config_path))
+
+    assert config.judge.prompt_version is None
+    assert config.judge.extra_body is None
+    assert config.run.idle_timeout is None
+
+
+def test_load_runner_toml_config_rejects_non_positive_idle_timeout(
+    tmp_path: Path,
+) -> None:
+    _write_scenario(tmp_path / "scenario.json", "scenario_1")
+
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+scenario = "scenario.json"
+
+[agent]
+image = "localhost/gaia2-hermes:latest"
+provider = "anthropic"
+model = "agent-model"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+
+[run]
+output_dir = "out"
+idle_timeout = 0
+""")
+
+    with pytest.raises(click.UsageError, match=r"\[run\].idle_timeout must be > 0"):
+        load_runner_toml_config(str(config_path))
 
 
 def test_load_runner_toml_config_supports_all_splits_and_auto_output_jsonl(

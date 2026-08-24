@@ -11,6 +11,7 @@ import json
 import click
 import pytest
 from gaia2_runner.cli import (
+    _build_container_env,
     _resolve_agent_config,
     _resolve_judge_config,
     _save_run_config,
@@ -179,3 +180,50 @@ class TestSaveRunConfig:
         config = json.loads((tmp_path / "run_config.json").read_text())
         assert config["num_scenarios"] == 160
         assert config["retry_num_scenarios"] == 25
+
+
+class TestJudgePromptVersion:
+    def test_prompt_version_propagates_to_container_env(self, monkeypatch) -> None:
+        monkeypatch.delenv("GAIA2_JUDGE_PROMPT_VERSION", raising=False)
+        env = _build_container_env(
+            "localhost/gaia2-oc:latest",
+            base_url=None,
+            thinking="off",
+            judge_model="gpt-oss-120b",
+            judge_provider="openai-compat",
+            judge_prompt_version="omnilingual-gaia2",
+        )
+        assert env["GAIA2_JUDGE_PROMPT_VERSION"] == "omnilingual-gaia2"
+
+    def test_no_prompt_version_omits_env(self) -> None:
+        env = _build_container_env(
+            "localhost/gaia2-oc:latest",
+            base_url=None,
+            thinking="off",
+            judge_model="gpt-oss-120b",
+            judge_provider="openai-compat",
+        )
+        assert "GAIA2_JUDGE_PROMPT_VERSION" not in env
+
+    def test_extra_body_is_serialized_as_json(self) -> None:
+        env = _build_container_env(
+            "localhost/gaia2-oc:latest",
+            base_url=None,
+            thinking="off",
+            judge_model="gpt-oss-120b",
+            judge_provider="openai-compat",
+            judge_extra_body={"chat_template_kwargs": {"enable_thinking": True}},
+        )
+        assert json.loads(env["GAIA2_JUDGE_EXTRA_BODY"]) == {
+            "chat_template_kwargs": {"enable_thinking": True}
+        }
+
+    def test_no_extra_body_omits_env(self) -> None:
+        env = _build_container_env(
+            "localhost/gaia2-oc:latest",
+            base_url=None,
+            thinking="off",
+            judge_model="gpt-oss-120b",
+            judge_provider="openai-compat",
+        )
+        assert "GAIA2_JUDGE_EXTRA_BODY" not in env

@@ -68,6 +68,12 @@ class JudgeConfig:
     provider: str
     base_url: str | None
     api_key: str | None
+    prompt_version: str | None = None
+    # Provider-specific extras forwarded verbatim to litellm.completion.
+    # Required for Qwen3 thinking checkpoints: pass
+    # {"chat_template_kwargs": {"enable_thinking": true}} — without it, the
+    # judge model returns content=null on every verdict.
+    extra_body: dict | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +89,7 @@ class RunConfig:
     log_level: str
     notification_mode: str
     time_speed: float | None
+    idle_timeout: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +123,14 @@ def _as_required_str(value: Any, name: str) -> str:
     if not text:
         raise click.UsageError(f"{name} is required")
     return text
+
+
+def _as_optional_dict(value: Any, name: str) -> dict | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise click.UsageError(f"{name} must be a TOML inline table / dict")
+    return value or None
 
 
 def _as_optional_int(value: Any, name: str) -> int | None:
@@ -325,7 +340,15 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
     _validate_allowed_keys(
         judge_table,
         table_name="judge",
-        allowed_keys={"model", "provider", "base_url", "api_key", "api_key_env"},
+        allowed_keys={
+            "model",
+            "provider",
+            "base_url",
+            "api_key",
+            "api_key_env",
+            "prompt_version",
+            "extra_body",
+        },
     )
     _validate_allowed_keys(
         run_table,
@@ -342,6 +365,7 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
             "log_level",
             "notification_mode",
             "time_speed",
+            "idle_timeout",
         },
     )
 
@@ -442,6 +466,12 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         provider=_as_required_str(judge_table.get("provider"), "[judge].provider"),
         base_url=_as_optional_str(judge_table.get("base_url"), "[judge].base_url"),
         api_key=_resolve_secret(judge_table, section_name="judge"),
+        prompt_version=_as_optional_str(
+            judge_table.get("prompt_version"), "[judge].prompt_version"
+        ),
+        extra_body=_as_optional_dict(
+            judge_table.get("extra_body"), "[judge].extra_body"
+        ),
     )
 
     output_dir = _resolve_path(
@@ -485,6 +515,9 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
             default="message",
         ),
         time_speed=_as_optional_float(run_table.get("time_speed"), "[run].time_speed"),
+        idle_timeout=_as_optional_float(
+            run_table.get("idle_timeout"), "[run].idle_timeout"
+        ),
     )
 
     if run.timeout < 1:
@@ -499,6 +532,8 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         raise click.UsageError("[run].pass_at must be >= 1")
     if run.time_speed is not None and run.time_speed <= 0:
         raise click.UsageError("[run].time_speed must be > 0")
+    if run.idle_timeout is not None and run.idle_timeout <= 0:
+        raise click.UsageError("[run].idle_timeout must be > 0")
     if target.is_single_scenario and target.limit is not None:
         raise click.UsageError("[target].limit is only supported for dataset targets")
     if target.is_single_scenario and run.concurrency != 1:

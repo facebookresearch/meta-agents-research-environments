@@ -86,11 +86,16 @@ import asyncio
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+
 async def main():
     # Create server parameters for stdio connection
     server_params = StdioServerParameters(
         command="python",
-        args=["are_simulation_mcp_server.py", "--app", "are.simulation.apps.calendar.CalendarApp"],
+        args=[
+            "are_simulation_mcp_server.py",
+            "--app",
+            "are.simulation.apps.calendar.CalendarApp",
+        ],
         env=None,
     )
 
@@ -121,6 +126,7 @@ async def main():
 
     # Close the session
     await session.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
