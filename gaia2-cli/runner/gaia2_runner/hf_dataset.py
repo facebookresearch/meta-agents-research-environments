@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 from pathlib import Path
 
-from gaia2_runner.config import CANONICAL_SPLITS
+import click
+
+from gaia2_runner.config import CANONICAL_SPLITS, MULTILINGUAL_SPLITS
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +37,21 @@ def is_hf_dataset(dataset: str) -> bool:
     return len(parts) == 2 and all(parts) and not Path(dataset).exists()
 
 
+def _available_config_names(dataset_id: str, token: str | None) -> str | None:
+    """Best-effort listing of a dataset's HF config names, for error messages."""
+    try:
+        from huggingface_hub import get_dataset_config_names
+
+        return ", ".join(get_dataset_config_names(dataset_id, token=token))
+    except Exception:  # pragma: no cover - network/offline degradation
+        return None
+
+
 def download_hf_dataset(
     dataset_id: str,
     splits: list[str] | None = None,
     token: str | None = None,
+    language: str | None = None,
 ) -> str:
     """Download a HuggingFace dataset and materialize it as scenario JSON files.
 
@@ -55,20 +69,33 @@ def download_hf_dataset(
         HuggingFace dataset identifier, e.g.
         ``meta-agents-research-environments/gaia2-cli``.
     splits:
-        List of split/config names to download.  ``None`` or ``["all"]``
-        downloads all canonical splits.
+        List of split names to download.  ``None`` or ``["all"]`` downloads
+        every split the dataset provides.
     token:
         Optional HuggingFace API token.  Falls back to ``$HF_TOKEN``.
+    language:
+        Optional language code for datasets published with one config per
+        language, e.g. ``facebook/omnilingual-gaia2``.  When set, the HF config
+        loaded for each split is ``f"{language}_{split}"`` and the cache is
+        keyed per language.  Split *directories* keep their bare names either
+        way, which is what the runner's per-split reporting relies on.
     """
-    configs = splits or list(CANONICAL_SPLITS)
-    if configs == ["all"]:
-        configs = list(CANONICAL_SPLITS)
+    available = MULTILINGUAL_SPLITS if language else CANONICAL_SPLITS
+    split_names = list(splits) if splits else list(available)
+    if split_names == ["all"]:
+        split_names = list(available)
 
-    cache_dir = _CACHE_DIR / dataset_id.replace("/", "_")
+    def config_name_for(split: str) -> str:
+        return f"{language}_{split}" if language else split
+
+    cache_key = dataset_id.replace("/", "_")
+    if language:
+        cache_key = f"{cache_key}_{language.replace('/', '_')}"
+    cache_dir = _CACHE_DIR / cache_key
 
     # Return early if all requested splits are already cached.
     if cache_dir.exists() and all(
-        (cache_dir / c).is_dir() and any((cache_dir / c).iterdir()) for c in configs
+        (cache_dir / s).is_dir() and any((cache_dir / s).iterdir()) for s in split_names
     ):
         logger.info("Using cached dataset at %s", cache_dir)
         return str(cache_dir)
@@ -86,23 +113,50 @@ def download_hf_dataset(
         token = os.environ.get("HF_TOKEN")
 
     cache_dir.mkdir(parents=True, exist_ok=True)
-    logger.info("Downloading HF dataset %s (configs: %s)", dataset_id, configs)
+    logger.info(
+        "Downloading HF dataset %s (configs: %s)",
+        dataset_id,
+        [config_name_for(s) for s in split_names],
+    )
 
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    for config_name in configs:
-        split_dir = cache_dir / config_name
+    for split in split_names:
+        # The directory is always the bare split name; only the HF config name
+        # carries the language prefix.  _infer_result_split() reads the split
+        # from the first path component under the dataset root.
+        split_dir = cache_dir / split
+        config_name = config_name_for(split)
         if split_dir.is_dir() and any(split_dir.iterdir()):
             logger.info("  %s: cached", config_name)
             continue
 
         logger.info("  %s: downloading ...", config_name)
         split_dir.mkdir(exist_ok=True)
-        ds = load_dataset(dataset_id, config_name, split="test", token=token)
+        try:
+            ds = load_dataset(dataset_id, config_name, split="test", token=token)
 
-        for row in ds:
-            out_path = split_dir / f"{row['scenario_id']}.json"
-            out_path.write_text(row["scenario"])
+            for row in ds:
+                out_path = split_dir / f"{row['scenario_id']}.json"
+                out_path.write_text(row["scenario"])
+        except BaseException as exc:
+            # The directory was created before the download, so leaving a
+            # partial one behind would make the next run's cache check pass and
+            # silently reuse an incomplete split. BaseException rather than
+            # Exception so a Ctrl-C mid-download cleans up too.
+            shutil.rmtree(split_dir, ignore_errors=True)
+            if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                raise
+            message = (
+                f"Failed to load HuggingFace config {config_name!r} from "
+                f"{dataset_id}: {exc}"
+            )
+            configs = _available_config_names(dataset_id, token)
+            if configs:
+                message += f"\nAvailable configs: {configs}"
+            if language:
+                message += "\n(check [target].language / --language)"
+            raise click.UsageError(message) from exc
 
         logger.info("  %s: %d scenarios", config_name, len(ds))
 

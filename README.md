@@ -13,6 +13,10 @@ Meta Agents Research Environments (ARE) is a platform designed to evaluate AI ag
 Looking for the container-based Gaia2-CLI benchmark stack? Start with
 [gaia2-cli](gaia2-cli).
 
+
+> **New:** [facebook/omnilingual-gaia2](https://huggingface.co/datasets/facebook/omnilingual-gaia2), a
+> multilingual extension of Gaia2! See [Omnilingual-Gaia2](#omnilingual-gaia2) below.
+
 ## Table of Contents
 
 - [Background](#background)
@@ -39,6 +43,7 @@ ARE addresses critical gaps in AI agent evaluation by providing:
 | **[Quick Start](https://facebookresearch.github.io/meta-agents-research-environments/quickstart.html)** | Get up and running with your first scenario in just a few minutes with step-by-step instructions. |
 | **[Gaia2 Evaluation](https://facebookresearch.github.io/meta-agents-research-environments/user_guide/gaia2_evaluation.html)** | Build and evaluate your agents on the Gaia2 benchmark, a comprehensive suite of 800 dynamic scenarios across 10 universes. |
 | **[Gaia2 Blog Post](https://huggingface.co/blog/gaia2)** | Learn more about Gaia2 on the Hugging Face blog. |
+| **[Omnilingual-Gaia2](https://huggingface.co/datasets/facebook/omnilingual-gaia2)** | Multilingual translation of Gaia2, for evaluating agents beyond English. Translation pipeline in [gaia2-cli/mt](gaia2-cli/mt/README.md). |
 | **[Paper](https://ai.meta.com/research/publications/are-scaling-up-agent-environments-and-evaluations/)** | Read the research paper detailing the Gaia2 benchmark and evaluation methodology. |
 | **[Demo](https://huggingface.co/spaces/meta-agents-research-environments/demo)** | [Try the ARE Demo on Hugging Face](https://huggingface.co/spaces/meta-agents-research-environments/demo) — Play around with the agent platform directly in your browser, no installation required! |
 | **[Gaia2 Leaderboard](https://huggingface.co/spaces/meta-agents-research-environments/leaderboard)** | Check the self-published results from Gaia2 Benchmark runs. |
@@ -157,6 +162,41 @@ are-benchmark gaia2-run --hf meta-agents-research-environments/gaia2 \
   --agent default --output_dir ./gaia2_results \
   --hf_upload my-org/gaia2-results
 ```
+
+### Omnilingual-Gaia2
+
+[facebook/omnilingual-gaia2](https://huggingface.co/datasets/facebook/omnilingual-gaia2) is a
+multilingual extension of Gaia2 — 10 languages across the `execution`, `search`,
+`ambiguity` and `adaptability` splits. The gaia2-cli runner downloads and caches it for
+you: set `[target].language` to pick the language, and
+`[judge].prompt_version = "omnilingual-gaia2"` to enable the multilingual judge prompts,
+without which a correct non-English answer is often scored as a miss.
+
+```bash
+# Copy the annotated template, then edit the language, models and endpoints
+cp gaia2-cli/runner/examples/openclaw_qwen_omnilingual_gaia2_pass3.toml ./my_omnilingual_run.toml
+
+# Validate the config and resolve the scenario selection without launching
+export OPENAI_COMPAT_API_KEY="your-api-key"
+gaia2-runner run-config --config ./my_omnilingual_run.toml --dry-run
+
+# Run the evaluation
+gaia2-runner run-config --config ./my_omnilingual_run.toml
+```
+
+The relevant part of the template:
+
+```toml
+[target]
+dataset = "facebook/omnilingual-gaia2"
+language = "spa_Latn"   # or cmn_Hans, deu_Latn, fra_Latn, ...
+
+[judge]
+prompt_version = "omnilingual-gaia2"
+```
+
+To translate Gaia2 into another language yourself, see
+[gaia2-cli/mt](gaia2-cli/mt/README.md).
 
 ## API
 

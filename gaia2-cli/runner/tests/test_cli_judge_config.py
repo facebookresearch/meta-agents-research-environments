@@ -140,6 +140,30 @@ class TestSaveRunConfig:
         assert config["dataset_cache_dir"] == str(cache_dir.resolve())
         assert config["splits"] == ["search"]
 
+    def test_persists_language(self, tmp_path) -> None:
+        _save_run_config(
+            output_dir=str(tmp_path),
+            command="run-config",
+            dataset="facebook/omnilingual-gaia2",
+            splits=["search"],
+            language="spa_Latn",
+            image="test-image:latest",
+            runtime="podman",
+            provider="openai",
+            model="gpt-4.1-mini",
+            base_url=None,
+            judge_model="judge-model",
+            judge_provider="judge-provider",
+            judge_base_url=None,
+            timeout=600,
+            health_timeout=120,
+            concurrency=1,
+            limit=None,
+        )
+
+        config = json.loads((tmp_path / "run_config.json").read_text())
+        assert config["language"] == "spa_Latn"
+
     def test_preserves_existing_num_scenarios_for_retry(self, tmp_path) -> None:
         _save_run_config(
             output_dir=str(tmp_path),

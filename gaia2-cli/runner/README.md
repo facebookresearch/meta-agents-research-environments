@@ -195,7 +195,12 @@ Target selection supports:
 - `scenario = "/path/to/scenario.json"` for one scenario
 - `dataset = "org/name"` to load from HuggingFace (auto-downloads and caches)
 - `dataset_root = "..."` to load from a local directory of scenario JSONs
-- Combine with `splits = "search"`, `splits = ["search", "time"]`, or `splits = "all"`
+- `language = "spa_Latn"` for datasets published with one config per language
+  (e.g. `facebook/omnilingual-gaia2`); the runner loads the `{language}_{split}`
+  config and caches each language separately. Only valid with `dataset`.
+- Combine with `splits = "search"`, `splits = ["search", "time"]`, or `splits = "all"`.
+  With `language`, `"all"` means the four translated capabilities — `execution`,
+  `search`, `ambiguity`, `adaptability` — as there is no translated `time` split.
 - `subset = "/path/to/subset.json"` to limit runs to a manifest
 
 For dataset targets, the runner preserves split subdirectories in the output
@@ -224,6 +229,7 @@ Curated examples:
 - `runner/examples/openclaw_sonnet_gaia2_pass1.toml` — OpenClaw + direct Anthropic Sonnet 4.6, public HuggingFace dataset, pass@1
 - `runner/examples/openclaw_google_gaia2_pass1.toml` — OpenClaw + direct Google AI Studio Gemini 3.1 Pro Preview, public HuggingFace dataset, pass@1
 - `runner/examples/openclaw_gpt54_gaia2_pass1.toml` — OpenClaw + direct OpenAI GPT-5.4, public HuggingFace dataset, pass@1
+- `runner/examples/openclaw_qwen_omnilingual_gaia2_pass3.toml` — Omnilingual-GAIA2: the published multilingual dataset via `language`, OpenClaw + locally served Qwen3.6-27B, `gpt-oss-120b` judge on a second endpoint, multilingual judge prompts, pass@3
 - `runner/examples/template_hermes_openai_compat.toml` — generic Hermes template for custom OpenAI chat-completions-compatible endpoints
 - `runner/examples/template_openclaw_openai_compat.toml` — generic OpenClaw template for custom OpenAI chat-completions-compatible endpoints
 

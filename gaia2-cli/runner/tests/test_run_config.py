@@ -12,7 +12,11 @@ import pytest
 from click.testing import CliRunner
 from gaia2_runner import cli as runner_cli
 from gaia2_runner.cli import main
-from gaia2_runner.config import CANONICAL_SPLITS, load_runner_toml_config
+from gaia2_runner.config import (
+    CANONICAL_SPLITS,
+    MULTILINGUAL_SPLITS,
+    load_runner_toml_config,
+)
 
 
 def _write_scenario(path: Path, scenario_id: str) -> None:
@@ -418,7 +422,7 @@ def test_run_config_dry_run_shows_hf_dataset_id(
     monkeypatch.setattr(
         hf_dataset,
         "download_hf_dataset",
-        lambda dataset_id, splits=None: str(tmp_path / "hf_cache"),
+        lambda dataset_id, splits=None, language=None: str(tmp_path / "hf_cache"),
     )
 
     config_path = tmp_path / "eval.toml"
@@ -460,7 +464,7 @@ def test_run_config_hf_dataset_respects_selected_splits_with_cached_extra_splits
     monkeypatch.setattr(
         hf_dataset,
         "download_hf_dataset",
-        lambda dataset_id, splits=None: str(tmp_path / "hf_cache"),
+        lambda dataset_id, splits=None, language=None: str(tmp_path / "hf_cache"),
     )
 
     config_path = tmp_path / "eval.toml"
@@ -532,7 +536,7 @@ def test_run_dataset_hf_metadata_includes_cache_dir_and_splits(
     monkeypatch.setattr(
         hf_dataset,
         "download_hf_dataset",
-        lambda dataset_id, splits=None: str(cache_dir),
+        lambda dataset_id, splits=None, language=None: str(cache_dir),
     )
     monkeypatch.setattr(
         runner_cli,
@@ -645,3 +649,338 @@ model = "judge-model"
 
     assert result.exit_code != 0
     assert "--retry is only supported for dataset targets" in result.output
+
+
+def test_load_runner_toml_config_reads_target_language(tmp_path: Path) -> None:
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+dataset = "facebook/omnilingual-gaia2"
+language = "spa_Latn"
+splits = ["search"]
+
+[agent]
+image = "localhost/gaia2-oracle:latest"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+""")
+
+    config = load_runner_toml_config(str(config_path))
+
+    assert config.target.language == "spa_Latn"
+    assert config.target.splits == ("search",)
+
+
+def test_load_runner_toml_config_language_defaults_to_multilingual_splits(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+dataset = "facebook/omnilingual-gaia2"
+language = "spa_Latn"
+
+[agent]
+image = "localhost/gaia2-oracle:latest"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+""")
+
+    config = load_runner_toml_config(str(config_path))
+
+    assert config.target.splits == MULTILINGUAL_SPLITS
+    assert "time" not in config.target.splits
+
+
+def test_load_runner_toml_config_language_all_splits_excludes_time(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+dataset = "facebook/omnilingual-gaia2"
+language = "spa_Latn"
+splits = "all"
+
+[agent]
+image = "localhost/gaia2-oracle:latest"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+""")
+
+    config = load_runner_toml_config(str(config_path))
+
+    assert config.target.splits == MULTILINGUAL_SPLITS
+    assert CANONICAL_SPLITS != MULTILINGUAL_SPLITS
+
+
+def test_load_runner_toml_config_rejects_time_split_with_language(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+dataset = "facebook/omnilingual-gaia2"
+language = "spa_Latn"
+splits = ["search", "time"]
+
+[agent]
+image = "localhost/gaia2-oracle:latest"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+""")
+
+    with pytest.raises(click.UsageError, match="not available for"):
+        load_runner_toml_config(str(config_path))
+
+
+def test_load_runner_toml_config_rejects_language_for_scenario_target(
+    tmp_path: Path,
+) -> None:
+    _write_scenario(tmp_path / "scenario.json", "scenario_1")
+
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+scenario = "scenario.json"
+language = "spa_Latn"
+
+[agent]
+image = "localhost/gaia2-oracle:latest"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+""")
+
+    with pytest.raises(click.UsageError, match=r"\[target\]\.language"):
+        load_runner_toml_config(str(config_path))
+
+
+def test_load_runner_toml_config_rejects_language_for_dataset_root_target(
+    tmp_path: Path,
+) -> None:
+    _write_scenario(tmp_path / "dataset" / "search" / "s1.json", "s1")
+
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+dataset_root = "dataset"
+language = "spa_Latn"
+
+[agent]
+image = "localhost/gaia2-oracle:latest"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+""")
+
+    with pytest.raises(click.UsageError, match="only applies to"):
+        load_runner_toml_config(str(config_path))
+
+
+def test_load_runner_toml_config_rejects_malformed_language(tmp_path: Path) -> None:
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+dataset = "facebook/omnilingual-gaia2"
+language = "spa"
+
+[agent]
+image = "localhost/gaia2-oracle:latest"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+""")
+
+    with pytest.raises(click.UsageError, match="language_Script"):
+        load_runner_toml_config(str(config_path))
+
+
+def test_run_config_dry_run_shows_language_and_forwards_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from gaia2_runner import hf_dataset
+
+    _write_scenario(tmp_path / "hf_cache" / "search" / "s1.json", "s1")
+    captured: dict[str, object] = {}
+
+    def fake_download(dataset_id, splits=None, language=None):
+        captured["dataset_id"] = dataset_id
+        captured["splits"] = splits
+        captured["language"] = language
+        return str(tmp_path / "hf_cache")
+
+    monkeypatch.setattr(hf_dataset, "download_hf_dataset", fake_download)
+
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+dataset = "facebook/omnilingual-gaia2"
+language = "spa_Latn"
+splits = ["search"]
+
+[agent]
+image = "localhost/gaia2-oracle:latest"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+
+[run]
+output_dir = "out"
+""")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["run-config", "--config", str(config_path), "--dry-run"]
+    )
+
+    assert result.exit_code == 0
+    assert "Dataset: facebook/omnilingual-gaia2" in result.output
+    assert "Language: spa_Latn" in result.output
+    assert captured["language"] == "spa_Latn"
+
+
+def test_run_dataset_language_flag_is_forwarded_and_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from gaia2_runner import hf_dataset
+
+    cache_dir = tmp_path / "hf_cache"
+    _write_scenario(cache_dir / "search" / "s1.json", "s1")
+
+    captured: dict[str, object] = {}
+    download_kwargs: dict[str, object] = {}
+
+    def fake_download(dataset_id, splits=None, language=None):
+        download_kwargs["splits"] = splits
+        download_kwargs["language"] = language
+        return str(cache_dir)
+
+    monkeypatch.setattr(hf_dataset, "download_hf_dataset", fake_download)
+    monkeypatch.setattr(
+        runner_cli,
+        "_build_execution_config",
+        lambda **kwargs: (object(), None, None, "judge-model", "judge-provider", None),
+    )
+    monkeypatch.setattr(
+        runner_cli,
+        "_execute_dataset_selection",
+        lambda **kwargs: captured.update(kwargs),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "run-dataset",
+            "--dataset",
+            "facebook/omnilingual-gaia2",
+            "--language",
+            "spa_Latn",
+            "--splits",
+            "search",
+            "--image",
+            "localhost/gaia2-oracle:latest",
+            "--judge-provider",
+            "judge-provider",
+            "--judge-model",
+            "judge-model",
+            "--output-dir",
+            str(tmp_path / "out"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert download_kwargs["language"] == "spa_Latn"
+    run_config_base = captured["run_config_base"]
+    assert run_config_base["language"] == "spa_Latn"
+    assert run_config_base["splits"] == ["search"]
+
+
+def test_run_dataset_language_metadata_defaults_exclude_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from gaia2_runner import hf_dataset
+
+    cache_dir = tmp_path / "hf_cache"
+    _write_scenario(cache_dir / "search" / "s1.json", "s1")
+
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        hf_dataset,
+        "download_hf_dataset",
+        lambda dataset_id, splits=None, language=None: str(cache_dir),
+    )
+    monkeypatch.setattr(
+        runner_cli,
+        "_build_execution_config",
+        lambda **kwargs: (object(), None, None, "judge-model", "judge-provider", None),
+    )
+    monkeypatch.setattr(
+        runner_cli,
+        "_execute_dataset_selection",
+        lambda **kwargs: captured.update(kwargs),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "run-dataset",
+            "--dataset",
+            "facebook/omnilingual-gaia2",
+            "--language",
+            "spa_Latn",
+            "--image",
+            "localhost/gaia2-oracle:latest",
+            "--judge-provider",
+            "judge-provider",
+            "--judge-model",
+            "judge-model",
+            "--output-dir",
+            str(tmp_path / "out"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    run_config_base = captured["run_config_base"]
+    assert run_config_base["splits"] == list(MULTILINGUAL_SPLITS)
+    assert "time" not in run_config_base["splits"]
+
+
+def test_run_dataset_rejects_language_for_local_dataset_path(tmp_path: Path) -> None:
+    _write_scenario(tmp_path / "dataset" / "search" / "s1.json", "s1")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "run-dataset",
+            "--dataset",
+            str(tmp_path / "dataset"),
+            "--language",
+            "spa_Latn",
+            "--image",
+            "localhost/gaia2-oracle:latest",
+            "--judge-provider",
+            "judge-provider",
+            "--judge-model",
+            "judge-model",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--language is only supported for HuggingFace dataset IDs" in result.output
