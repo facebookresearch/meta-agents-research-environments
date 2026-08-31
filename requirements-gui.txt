@@ -7,7 +7,7 @@ fastapi==0.116.1
 
 # ASGI routing and utilities
 # Used in: simulation/gui/server/server.py, simulation/gui/server/graphql/common.py
-starlette==0.47.2
+starlette==1.3.1
 
 # GraphQL implementation (imported as 'strawberry', not 'strawberry_graphql')
 # Used in: simulation/gui/server/graphql/*.py files
