@@ -123,6 +123,13 @@ uv run --project runner --python 3.12 gaia2-runner run-config \
     --config runner/examples/<your-config>.toml
 ```
 
+## Alternative semantic judges
+
+TypeSafe Jev can replace the semantic checker backend with `[judge].provider =
+"typesafe"`. Hard checks, event ordering and timing checks stay unchanged. See
+the [backend guide](cli/gaia2_cli/judge/README.md) for setup, audit records,
+comparison limits and the protocol for adding another backend.
+
 ## Useful Commands
 
 ```bash

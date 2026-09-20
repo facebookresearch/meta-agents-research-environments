@@ -984,3 +984,14 @@ def test_run_dataset_rejects_language_for_local_dataset_path(tmp_path: Path) -> 
 
     assert result.exit_code != 0
     assert "--language is only supported for HuggingFace dataset IDs" in result.output
+
+
+def test_jev_example_resolves_existing_key_and_options(monkeypatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "agent-test-key")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "judge-test-key")
+    path = Path(__file__).parents[1] / "examples" / "quickstart_hermes_jev.toml"
+    config = load_runner_toml_config(str(path))
+    assert config.judge.provider == "typesafe"
+    assert config.judge.api_key == "judge-test-key"
+    assert config.judge.extra_body == {"threshold": 0.5, "timeout": 30.0}
+    assert config.agent.api_key == "agent-test-key"

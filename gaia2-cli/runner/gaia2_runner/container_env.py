@@ -103,6 +103,7 @@ _ORACLE = ContainerProfile(
 
 _PROVIDER_API_KEY_ENV_KEYS: dict[str, tuple[str, ...]] = {
     "anthropic": ("ANTHROPIC_API_KEY",),
+    "typesafe": ("TYPESAFE_API_KEY",),
     "google": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
     "openai": ("OPENAI_API_KEY",),
     "openai-codex": ("OPENAI_API_KEY",),
@@ -121,6 +122,7 @@ _PROVIDER_API_KEY_ENV_KEYS: dict[str, tuple[str, ...]] = {
 
 _PROVIDER_API_KEY_EXPORT_KEYS: dict[str, tuple[str, ...]] = {
     "anthropic": ("ANTHROPIC_API_KEY",),
+    "typesafe": ("TYPESAFE_API_KEY",),
     "google": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
     "openai": ("OPENAI_API_KEY",),
     "openai-codex": ("OPENAI_API_KEY",),

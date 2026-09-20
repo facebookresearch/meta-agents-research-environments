@@ -5,6 +5,7 @@
 
 from gaia2_core.judge.judge import Judge
 
+from gaia2_cli.judge.backends import create_checker_factory
 from gaia2_cli.judge.engine import RateLimitError, create_litellm_engine
 
-__all__ = ["Judge", "RateLimitError", "create_litellm_engine"]
+__all__ = ["Judge", "RateLimitError", "create_litellm_engine", "create_checker_factory"]

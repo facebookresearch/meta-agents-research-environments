@@ -285,7 +285,7 @@ class Gaia2EventDaemon:
         so misconfigurations (bad LLM provider, missing deps) surface
         immediately instead of silently running without a judge.
         """
-        from gaia2_cli.judge import Judge, create_litellm_engine
+        from gaia2_cli.judge import Judge, create_checker_factory
 
         oracle_data = loader.extract_oracle_data(
             event_id_to_turn_idx=processor.event_id_to_turn_idx,
@@ -313,19 +313,19 @@ class Gaia2EventDaemon:
             logger.info("No oracle events found, judge disabled")
             return None
 
-        # Create LLM engine if model specified
-        engine = None
+        # Create semantic checkers if model specified
+        checker_factory = None
         if self.judge_model:
-            engine = create_litellm_engine(
+            checker_factory = create_checker_factory(
                 model=self.judge_model,
                 provider=self.judge_provider,
                 base_url=self.judge_base_url,
-                validate=False,
                 api_key=self.judge_api_key,
                 extra_body=self.judge_extra_body,
+                audit_path=self.state_dir / "judge_decisions.jsonl",
             )
             logger.info(
-                "Judge LLM engine: model=%s provider=%s base_url=%s",
+                "Judge backend: model=%s provider=%s base_url=%s",
                 self.judge_model,
                 self.judge_provider,
                 self.judge_base_url,
@@ -349,7 +349,7 @@ class Gaia2EventDaemon:
             tasks=tasks,
             user_details=user_details,
             start_time=loader.start_time,
-            engine=engine,
+            checker_factory=checker_factory,
             app_name_to_class=loader.app_name_to_class,
             state_dir=str(self.state_dir),
             prompt_overrides=prompt_overrides,

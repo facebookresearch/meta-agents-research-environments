@@ -914,6 +914,7 @@ class ContainerRunner:
         - ``/tmp/gaia2-eventd.log`` → ``eventd.log``
         - ``/tmp/entrypoint.log`` → ``entrypoint.log``
         - ``/var/gaia2/state/judgments.jsonl`` → ``daemon_judgments.jsonl``
+        - ``/var/gaia2/state/judge_decisions.jsonl`` → ``judge_decisions.jsonl``
         - ``/var/gaia2/state/user_details.json`` → ``user_details.json``
         - ``/var/gaia2/state/daemon_status.json`` → ``daemon_status.json``
         - ``/var/gaia2/state/notifications.jsonl`` → ``notifications.jsonl``
@@ -923,6 +924,7 @@ class ContainerRunner:
             ("/tmp/gaia2-eventd.log", "eventd.log"),
             ("/tmp/entrypoint.log", "entrypoint.log"),
             ("/var/gaia2/state/judgments.jsonl", "daemon_judgments.jsonl"),
+            ("/var/gaia2/state/judge_decisions.jsonl", "judge_decisions.jsonl"),
             ("/var/gaia2/state/user_details.json", "user_details.json"),
             ("/var/gaia2/state/daemon_status.json", "daemon_status.json"),
             ("/var/gaia2/state/notifications.jsonl", "notifications.jsonl"),

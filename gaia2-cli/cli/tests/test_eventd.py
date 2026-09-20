@@ -341,7 +341,7 @@ class TestCreateJudge:
             def __init__(self, **kwargs):
                 captured["judge"] = kwargs
 
-        monkeypatch.setattr(judge_module, "create_litellm_engine", fake_engine)
+        monkeypatch.setattr(judge_module, "create_checker_factory", fake_engine)
         monkeypatch.setattr(judge_module, "Judge", FakeJudge)
 
         loader = SimpleNamespace(
