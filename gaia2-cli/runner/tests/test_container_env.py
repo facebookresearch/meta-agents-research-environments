@@ -80,3 +80,11 @@ def test_provider_api_key_export_keys_for_openai_compat() -> None:
         "OPENAI_COMPAT_API_KEY",
         "OPENAI_COMPLETIONS_API_KEY",
     )
+
+
+def test_typesafe_judge_reuses_provider_key(monkeypatch) -> None:
+    monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-test-key")
+    resolved = resolve_api_key_details("typesafe", None, {})
+    assert resolved.value == "typesafe-test-key"
+    assert resolved.source == "TYPESAFE_API_KEY"
+    assert provider_api_key_export_keys("typesafe") == ("TYPESAFE_API_KEY",)

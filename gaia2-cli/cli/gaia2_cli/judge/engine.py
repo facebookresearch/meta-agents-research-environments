@@ -44,6 +44,19 @@ def create_litellm_engine(
     ``extra_body`` is forwarded verbatim to ``litellm.completion`` for
     provider-specific request-body extensions; ``None`` (default) is a no-op.
     """
+    if (provider or "").lower() == "typesafe":
+        from gaia2_cli.judge.typesafe import TypeSafeEngine
+
+        options = extra_body or {}
+        unknown = options.keys() - {"threshold", "timeout"}
+        if unknown:
+            raise ValueError(
+                f"Unknown TypeSafe judge options: {', '.join(sorted(unknown))}"
+            )
+        # Jev evaluates typed binary questions; the text-generation probe below
+        # is not applicable. Configuration is validated by the constructor.
+        return TypeSafeEngine(model, api_key, base_url, **options)
+
     try:
         import litellm  # noqa: F811
     except ImportError as exc:

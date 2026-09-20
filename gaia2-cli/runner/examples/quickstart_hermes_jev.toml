@@ -1,0 +1,27 @@
+# Hermes agent with opt-in TypeSafe Jev semantic judging, search split, pass@1.
+# Jev is an alternative judge; scores are not calibrated to the reference judge.
+
+[target]
+dataset = "meta-agents-research-environments/gaia2-cli"
+splits = ["search"]
+
+[agent]
+image = "localhost/gaia2-hermes:latest"
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+api_key_env = "ANTHROPIC_API_KEY"
+thinking = "high"
+
+[judge]
+provider = "typesafe"
+model = "jev-latest"
+api_key_env = "TYPESAFE_API_KEY"
+extra_body = { threshold = 0.5, timeout = 30.0 }
+
+[run]
+timeout = 900
+health_timeout = 180
+concurrency = 1
+pass_at = 1
+output_dir = "/tmp/gaia2_hermes_jev"
+log_level = "INFO"
