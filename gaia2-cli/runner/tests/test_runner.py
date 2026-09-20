@@ -767,14 +767,3 @@ class TestBuildContainerEnv:
 
         assert env["GAIA2_JUDGE_API_KEY"] == "openai-judge-key"
         assert "pulling from OPENAI_API_KEY" in caplog.text
-
-
-def test_collects_structured_judge_decisions(tmp_path) -> None:
-    launcher = _mock_launcher()
-    runner = _make_runner(launcher)
-    runner._extract_daemon_logs("container-123", tmp_path)
-    launcher.copy_from.assert_any_call(
-        "container-123",
-        "/var/gaia2/state/judge_decisions.jsonl",
-        str(tmp_path / "judge_decisions.jsonl"),
-    )

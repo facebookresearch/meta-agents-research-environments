@@ -15,7 +15,6 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
 
-from gaia2_core.judge.backends import SoftCheckerFactory
 from gaia2_core.types import (
     CompletedEvent,
     JudgmentResult,
@@ -50,7 +49,6 @@ class Judge:
         post_event_tolerance_seconds: float = 25.0,
         time_check_warn_only: bool = False,
         prompt_overrides: dict | None = None,
-        checker_factory: SoftCheckerFactory | None = None,
     ) -> None:
         self.turn_to_oracle_events = turn_to_oracle_events
         self.turn_to_oracle_graph = turn_to_oracle_graph
@@ -80,16 +78,7 @@ class Judge:
 
         # Build LLM checkers (None if no engine)
         self._llm_checkers: dict | None = None
-        if checker_factory is not None:
-            if engine is not None:
-                raise ValueError("Specify either engine or checker_factory, not both")
-            from gaia2_core.judge.checkers import build_soft_checkers
-
-            # Explicit backends must never silently degrade to hard-only judging.
-            self._llm_checkers = build_soft_checkers(
-                checker_factory, prompt_template_overrides=prompt_overrides
-            )
-        elif engine is not None:
+        if engine is not None:
             try:
                 from gaia2_core.judge.checkers import build_llm_checkers
 

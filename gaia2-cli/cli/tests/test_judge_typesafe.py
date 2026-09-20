@@ -1,7 +1,7 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.
 # This source code is licensed under the terms described in the LICENSE file in
 # the root directory of this source tree.
-"""Contract and integration tests for interchangeable semantic backends."""
+"""Contract and integration tests for the TypeSafe judge engine adapter."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ from types import SimpleNamespace
 from urllib.error import HTTPError, URLError
 
 import pytest
-from gaia2_cli.judge import Judge, RateLimitError, create_checker_factory
-from gaia2_cli.judge.typesafe import TypeSafeCheckerFactory
-from gaia2_core.judge.checkers import build_llm_checkers, build_soft_checkers
+from gaia2_cli.judge import Judge, RateLimitError, create_litellm_engine
+from gaia2_cli.judge.typesafe import TypeSafeEngine
+from gaia2_core.judge.checkers import LLMChecker, build_llm_checkers
 from gaia2_core.judge.prompts import LLMFunctionTemplates
 from gaia2_core.types import CompletedEvent, EventAction, OracleEvent
 
@@ -50,7 +50,10 @@ def mock_api(monkeypatch, response):
 
 
 def factory(**kwargs):
-    return TypeSafeCheckerFactory(model="jev-test", api_key="test-secret", **kwargs)
+    engine = TypeSafeEngine(model="jev-test", api_key="test-secret", **kwargs)
+    return lambda templates, votes, success, failure: LLMChecker(
+        engine, templates, votes, success, failure
+    )
 
 
 @pytest.mark.parametrize(
@@ -69,7 +72,6 @@ def test_typed_verdict_and_audit(monkeypatch, tmp_path, probability, expected):
     assert request.full_url == "https://api.typesafe.ai/v1/systemone"
     assert request.get_header("Authorization") == "Bearer test-secret"
     assert timeout == 30
-    assert body["state"]["full_task"] == "Count the files"
     assert len(body["state"]["messages"]) == 4
     assert body["state"]["messages"][-1]["content"] == "Expected: one; actual: 1"
     assert body["questions"]["verdict"]["type"] == "noul"
@@ -80,7 +82,7 @@ def test_typed_verdict_and_audit(monkeypatch, tmp_path, probability, expected):
     assert record["passed"] is expected
     assert len(record["input_sha256"]) == 64
     assert "test-secret" not in path.read_text()
-    assert json.loads(checker.last_response) == [record]
+    assert json.loads(checker.last_response.split("\n", 1)[1]) == record
 
 
 @pytest.mark.parametrize(
@@ -89,7 +91,7 @@ def test_typed_verdict_and_audit(monkeypatch, tmp_path, probability, expected):
 def test_invalid_probabilities_are_errors(monkeypatch, value):
     mock_api(monkeypatch, reply(value))
     with pytest.raises(RuntimeError, match="invalid verdict"):
-        factory()(TEMPLATES, 1, "yes", "no")({})
+        factory()(TEMPLATES, 1, "[[Success]]", "[[Failure]]")({})
 
 
 @pytest.mark.parametrize(
@@ -104,7 +106,7 @@ def test_invalid_probabilities_are_errors(monkeypatch, value):
 def test_malformed_responses_are_errors(monkeypatch, response):
     mock_api(monkeypatch, response)
     with pytest.raises(RuntimeError, match="invalid verdict"):
-        factory()(TEMPLATES, 1, "yes", "no")({})
+        factory()(TEMPLATES, 1, "[[Success]]", "[[Failure]]")({})
 
 
 @pytest.mark.parametrize(
@@ -122,7 +124,7 @@ def test_transport_errors_do_not_become_votes_or_leak_keys(monkeypatch, error, k
 
     monkeypatch.setattr("gaia2_cli.judge.typesafe.urlopen", fail)
     with pytest.raises(kind) as caught:
-        factory()(TEMPLATES, 1, "yes", "no")({})
+        factory()(TEMPLATES, 1, "[[Success]]", "[[Failure]]")({})
     assert "test-secret" not in str(caught.value)
 
 
@@ -147,17 +149,17 @@ def test_invalid_options(option, value):
 def test_provider_selection_is_lazy_and_uses_existing_key(monkeypatch):
     monkeypatch.setenv("TYPESAFE_API_KEY", "existing-key")
     monkeypatch.setitem(sys.modules, "litellm", None)
-    backend = create_checker_factory(
+    backend = create_litellm_engine(
         "jev-test", "typesafe", extra_body={"threshold": 0.8}
     )
-    assert isinstance(backend, TypeSafeCheckerFactory)
+    assert isinstance(backend, TypeSafeEngine)
     assert backend.api_key == "existing-key"
     assert backend.threshold == 0.8
     with pytest.raises(ValueError, match="Unknown TypeSafe"):
-        create_checker_factory("jev-test", "typesafe", extra_body={"typo": 1})
+        create_litellm_engine("jev-test", "typesafe", extra_body={"typo": 1})
     monkeypatch.delenv("TYPESAFE_API_KEY")
     with pytest.raises(ValueError, match="TYPESAFE_API_KEY"):
-        create_checker_factory("jev-test", "typesafe")
+        create_litellm_engine("jev-test", "typesafe")
 
 
 def test_existing_provider_keeps_litellm_request_and_verdict(monkeypatch):
@@ -170,43 +172,28 @@ def test_existing_provider_keeps_litellm_request_and_verdict(monkeypatch):
         )
 
     monkeypatch.setitem(sys.modules, "litellm", SimpleNamespace(completion=completion))
-    backend = create_checker_factory(
+    backend = create_litellm_engine(
         "existing",
         "openai",
         api_key="test-secret",
         extra_body={"reasoning_effort": "low"},
     )
-    assert (
-        backend(TEMPLATES, 1, "[[Success]]", "[[Failure]]")(
-            {"expected": "one", "actual": "1"}
-        )
-        is True
-    )
+    assert LLMChecker(backend, TEMPLATES)({"expected": "one", "actual": "1"}) is True
     assert calls[0]["model"] == "existing"
     assert calls[0]["extra_body"] == {"reasoning_effort": "low"}
     assert calls[0]["temperature"] == 0
 
 
-def test_rubric_overrides_votes_and_all_checkers_are_preserved():
-    captured = []
-
-    def backend(templates, votes, success, failure):
-        captured.append((templates, votes, success, failure))
-        return SimpleNamespace(last_response=None)
-
-    checkers = build_soft_checkers(
-        backend, num_votes=3, prompt_template_overrides={"email_checker": TEMPLATES}
-    )
+def test_all_existing_rubrics_and_votes(monkeypatch):
+    calls = mock_api(monkeypatch, reply())
+    engine = TypeSafeEngine("jev-test", api_key="test-secret")
+    checkers = build_llm_checkers(engine, num_votes=3)
     assert len(checkers) == 9
-    assert (TEMPLATES, 3, "[[Success]]", "[[Failure]]") in captured
-    assert sum(item[1] == 1 for item in captured) == 3
-    with pytest.raises(KeyError):
-        build_soft_checkers(backend, prompt_template_overrides={"unknown": TEMPLATES})
-    legacy = build_llm_checkers(lambda messages: ("[[TRUE]]", {}))
-    assert (
-        legacy["signature_checker"]({"agent_action_call": "Hi", "user_name": "Alice"})
-        is True
-    )
+    for checker in checkers.values():
+        assert checker({}) is True
+    assert len(calls) == 21
+    with pytest.raises(ValueError, match="binary GAIA2"):
+        engine([{"role": "system", "content": "Extract a subtask."}])
 
 
 def judge_and_event(backend, recipient="correct@example.org"):
@@ -251,37 +238,31 @@ def judge_and_event(backend, recipient="correct@example.org"):
         [[oracle]],
         [{"o1": []}],
         ["Tell Alice the meeting is at 3 PM."],
-        checker_factory=backend,
+        engine=backend,
     )
     return judge, agent
 
 
 def test_real_judge_preserves_hard_checks_and_uses_jev_for_semantics(monkeypatch):
     calls = mock_api(monkeypatch, reply())
-    judge, agent = judge_and_event(factory(), "wrong@example.org")
+    judge, agent = judge_and_event(
+        TypeSafeEngine("jev-test", api_key="test-secret"), "wrong@example.org"
+    )
     assert judge.judge_turn(0, [agent]).success is False
     assert calls == []
-    judge, agent = judge_and_event(factory())
+    judge, agent = judge_and_event(TypeSafeEngine("jev-test", api_key="test-secret"))
     assert judge.judge_turn(0, [agent]).success is True
     assert len(calls) == 2  # signature and email; placeholder check remains Python
-    assert all(json.loads(call[0].data)["state"]["full_task"] for call in calls)
     mock_api(monkeypatch, reply(0.1))
-    judge, agent = judge_and_event(factory())
+    judge, agent = judge_and_event(TypeSafeEngine("jev-test", api_key="test-secret"))
     assert judge.judge_turn(0, [agent]).success is False
 
 
 def test_backend_failure_never_degrades_to_hard_only_success(monkeypatch):
-    def broken(*args):
-        raise RuntimeError("backend unavailable")
-
-    with pytest.raises(RuntimeError, match="backend unavailable"):
-        judge_and_event(broken)
     mock_api(monkeypatch, {})
-    judge, agent = judge_and_event(factory())
+    judge, agent = judge_and_event(TypeSafeEngine("jev-test", api_key="test-secret"))
     with pytest.raises(RuntimeError, match="invalid verdict"):
         judge.judge_turn(0, [agent])
-    with pytest.raises(ValueError, match="either engine"):
-        Judge([], [], [], engine=lambda _: ("ok", {}), checker_factory=factory())
 
 
 def test_real_http_transport(monkeypatch):
@@ -314,7 +295,7 @@ def test_real_http_transport(monkeypatch):
     thread.start()
     try:
         checker = factory(base_url=f"http://127.0.0.1:{server.server_port}/v1")(
-            TEMPLATES, 1, "yes", "no"
+            TEMPLATES, 1, "[[Success]]", "[[Failure]]"
         )
         assert checker({"expected": "one", "actual": "1"}) is True
         assert received[0][0] == "/v1/systemone"

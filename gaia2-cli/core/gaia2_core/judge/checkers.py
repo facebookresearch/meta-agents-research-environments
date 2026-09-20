@@ -18,7 +18,6 @@ import unicodedata
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from gaia2_core.judge.backends import SoftChecker, SoftCheckerFactory
 from gaia2_core.judge.config import CheckerType, SoftCheckerType
 from gaia2_core.types import CompletedEvent, OracleEvent, UserDetails
 
@@ -273,10 +272,10 @@ def hard_compare(
 # ---------------------------------------------------------------------------
 
 
-class CheckerPrompt:
-    """Render the same rubric and examples for text or structured backends."""
+class LLMFunction:
+    """Format prompts and call LLM engine.  Returns raw string."""
 
-    def __init__(self, prompt_templates: Any) -> None:
+    def __init__(self, engine: Callable, prompt_templates: Any) -> None:
         system_prompt_args = prompt_templates.system_prompt_args or {}
         self.system_prompt = jinja_format(
             prompt_templates.system_prompt_template, **system_prompt_args
@@ -302,26 +301,16 @@ class CheckerPrompt:
                         },
                     ]
                 )
+        self.engine = engine
 
-    def messages(self, user_prompt_args: dict[str, str]) -> list[dict[str, str]]:
+    def __call__(self, user_prompt_args: dict[str, str]) -> str | None:
         messages: list[dict[str, str]] = [
             {"role": "system", "content": self.system_prompt}
         ]
         messages.extend(self.examples)
         user_prompt = jinja_format(self.user_prompt_template, **user_prompt_args)
         messages.append({"role": "user", "content": user_prompt})
-        return messages
-
-
-class LLMFunction(CheckerPrompt):
-    """Format prompts and call LLM engine. Returns raw string."""
-
-    def __init__(self, engine: Callable, prompt_templates: Any) -> None:
-        super().__init__(prompt_templates)
-        self.engine = engine
-
-    def __call__(self, user_prompt_args: dict[str, str]) -> str | None:
-        response, _ = self.engine(self.messages(user_prompt_args))
+        response, _ = self.engine(messages)
         return response
 
 
@@ -385,89 +374,61 @@ def build_llm_checkers(
     num_votes: int = 1,
     *,
     prompt_template_overrides: dict | None = None,
-) -> dict[str, SoftChecker]:
+) -> dict[str, LLMChecker]:
     """Build all LLM checker instances.
 
     ``prompt_template_overrides`` maps a ``SoftCheckerType`` value to the
     ``LLMFunctionTemplates`` to use for that checker instead of the default.
     """
-    return build_soft_checkers(
-        lambda templates, votes, success, failure: LLMChecker(
-            engine, templates, votes, success, failure
-        ),
-        num_votes=num_votes,
-        prompt_template_overrides=prompt_template_overrides,
-    )
-
-
-def build_soft_checkers(
-    factory: SoftCheckerFactory,
-    num_votes: int = 1,
-    *,
-    prompt_template_overrides: dict | None = None,
-) -> dict[str, SoftChecker]:
-    """Apply the existing rubrics to a replaceable checker backend."""
     from gaia2_core.judge import prompts as P
 
-    specs = {
-        "signature_checker": (
-            P.SIGNATURE_CHECKER_TEMPLATES,
-            1,
-            "[[True]]",
-            "[[False]]",
+    checkers = {
+        SoftCheckerType.signature_checker.value: LLMChecker(
+            engine, P.SIGNATURE_CHECKER_TEMPLATES, 1, "[[True]]", "[[False]]"
         ),
-        "sanity_checker": (
+        SoftCheckerType.sanity_checker.value: LLMChecker(
+            engine,
             P.SANITY_CHECKER_PROMPT_TEMPLATES,
             1,
             "[[True]]",
             "[[False]]",
         ),
-        "content_checker": (
-            P.CONTENT_CHECKER_PROMPT_TEMPLATES,
-            num_votes,
-            "[[Success]]",
-            "[[Failure]]",
+        SoftCheckerType.content_checker.value: LLMChecker(
+            engine, P.CONTENT_CHECKER_PROMPT_TEMPLATES, num_votes
         ),
-        "cab_checker": (P.CAB_CHECKER_PROMPT_TEMPLATES, 1, "[[True]]", "[[False]]"),
-        "email_checker": (
-            P.EMAIL_CHECKER_PROMPT_TEMPLATES,
-            num_votes,
-            "[[Success]]",
-            "[[Failure]]",
+        SoftCheckerType.cab_checker.value: LLMChecker(
+            engine,
+            P.CAB_CHECKER_PROMPT_TEMPLATES,
+            1,
+            "[[True]]",
+            "[[False]]",
         ),
-        "message_checker": (
-            P.MESSAGE_CHECKER_PROMPT_TEMPLATES,
-            num_votes,
-            "[[Success]]",
-            "[[Failure]]",
+        SoftCheckerType.email_checker.value: LLMChecker(
+            engine, P.EMAIL_CHECKER_PROMPT_TEMPLATES, num_votes
         ),
-        "user_message_checker": (
-            P.USER_MESSAGE_CHECKER_PROMPT_TEMPLATES,
-            num_votes,
-            "[[Success]]",
-            "[[Failure]]",
+        SoftCheckerType.message_checker.value: LLMChecker(
+            engine, P.MESSAGE_CHECKER_PROMPT_TEMPLATES, num_votes
         ),
-        "event_checker": (
-            P.EVENT_CHECKER_PROMPT_TEMPLATES,
-            num_votes,
-            "[[Success]]",
-            "[[Failure]]",
+        SoftCheckerType.user_message_checker.value: LLMChecker(
+            engine, P.USER_MESSAGE_CHECKER_PROMPT_TEMPLATES, num_votes
         ),
-        "tone_checker": (
+        SoftCheckerType.event_checker.value: LLMChecker(
+            engine, P.EVENT_CHECKER_PROMPT_TEMPLATES, num_votes
+        ),
+        SoftCheckerType.tone_checker.value: LLMChecker(
+            engine,
             P.TONE_CHECKER_PROMPT_TEMPLATES,
             num_votes,
             "[[True]]",
             "[[False]]",
         ),
     }
-    overrides = prompt_template_overrides or {}
-    for key in overrides:
-        if key not in specs:
-            raise KeyError(key)
-    return {
-        key: factory(overrides.get(key, templates), votes, success, failure)
-        for key, (templates, votes, success, failure) in specs.items()
-    }
+    for key, templates in (prompt_template_overrides or {}).items():
+        old = checkers[key]
+        checkers[key] = LLMChecker(
+            engine, templates, old.num_votes, old.success_str, old.failure_str
+        )
+    return checkers
 
 
 # ---------------------------------------------------------------------------
@@ -540,7 +501,7 @@ def soft_compare(
     oracle_args: dict[str, Any],
     tool_name: str,
     soft_checker_types: list[SoftCheckerType],
-    llm_checkers: dict[str, SoftChecker] | None,
+    llm_checkers: dict[str, LLMChecker] | None,
     tasks: list[str] | None = None,
     user_details: UserDetails | None = None,
     oracle_event_time: float | None = None,
@@ -617,7 +578,6 @@ def soft_compare(
         elif checker_type == SoftCheckerType.signature_checker:
             result = llm_checkers[SoftCheckerType.signature_checker.value](
                 user_prompt_args={
-                    "full_task": "\n".join(tasks),
                     "agent_action_call": agent_action_call,
                     "user_name": user_name,
                 }
@@ -631,7 +591,6 @@ def soft_compare(
             else:
                 result = llm_checkers[SoftCheckerType.sanity_checker.value](
                     user_prompt_args={
-                        "full_task": "\n".join(tasks),
                         "agent_action_call": agent_action_call,
                         "task": "\n".join([previous_task, task]),
                     }
@@ -640,7 +599,6 @@ def soft_compare(
         elif checker_type == SoftCheckerType.content_checker:
             result = llm_checkers[SoftCheckerType.content_checker.value](
                 user_prompt_args={
-                    "full_task": "\n".join(tasks),
                     "agent_action_call": agent_action_call,
                     "oracle_action_call": oracle_action_call,
                     "task": subtask,
@@ -666,7 +624,6 @@ def soft_compare(
             resolved_agent_call = _describe_action_args(resolved_agent)
             result = llm_checkers[SoftCheckerType.cab_checker.value](
                 user_prompt_args={
-                    "full_task": "\n".join(tasks),
                     "agent_action_call": resolved_agent_call,
                     "oracle_action_call": resolved_oracle_call,
                     "user_address": user_address,
@@ -676,7 +633,6 @@ def soft_compare(
         elif checker_type == SoftCheckerType.email_checker:
             result = llm_checkers[SoftCheckerType.email_checker.value](
                 user_prompt_args={
-                    "full_task": "\n".join(tasks),
                     "agent_action_call": agent_action_call,
                     "oracle_action_call": oracle_action_call,
                     "today_date": today_date,
@@ -686,7 +642,6 @@ def soft_compare(
         elif checker_type == SoftCheckerType.message_checker:
             result = llm_checkers[SoftCheckerType.message_checker.value](
                 user_prompt_args={
-                    "full_task": "\n".join(tasks),
                     "agent_action_call": agent_action_call,
                     "oracle_action_call": oracle_action_call,
                     "today_date": today_date,
@@ -696,7 +651,6 @@ def soft_compare(
         elif checker_type == SoftCheckerType.user_message_checker:
             result = llm_checkers[SoftCheckerType.user_message_checker.value](
                 user_prompt_args={
-                    "full_task": "\n".join(tasks),
                     "agent_action_call": agent_action_call,
                     "oracle_action_call": oracle_action_call,
                     "task": subtask,
@@ -706,7 +660,6 @@ def soft_compare(
         elif checker_type == SoftCheckerType.event_checker:
             result = llm_checkers[SoftCheckerType.event_checker.value](
                 user_prompt_args={
-                    "full_task": "\n".join(tasks),
                     "agent_action_call": agent_action_call,
                     "oracle_action_call": oracle_action_call,
                     "user_address": user_address,
@@ -717,7 +670,6 @@ def soft_compare(
         elif checker_type == SoftCheckerType.tone_checker:
             result = llm_checkers[SoftCheckerType.tone_checker.value](
                 user_prompt_args={
-                    "full_task": "\n".join(tasks),
                     "agent_action_call": agent_action_call,
                 }
             )
@@ -754,7 +706,7 @@ def mild_compare(
     oracle_event: OracleEvent,
     arg_checker_registry: dict[str, dict[str, CheckerType]],
     soft_checker_registry: dict[str, list[SoftCheckerType]],
-    llm_checkers: dict[str, SoftChecker] | None = None,
+    llm_checkers: dict[str, LLMChecker] | None = None,
     tolerance_list_str: list[str] | None = None,
     tasks: list[str] | None = None,
     user_details: UserDetails | None = None,
