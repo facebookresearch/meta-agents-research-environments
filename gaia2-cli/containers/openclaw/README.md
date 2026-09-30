@@ -124,6 +124,7 @@ Common runtime env vars:
 | `BASE_URL` | Optional custom endpoint override |
 | `THINKING` | Reasoning/thinking level |
 | `OPENCLAW_FORCE_RECONFIG` | Required for direct runs |
+| `OPENCLAW_CONTEXT_WINDOW` | Optional context window override in tokens (the runner's `context_window`) |
 | `GAIA2_TRACE_FILE` | Optional raw trace JSONL output |
 
 Provider-specific behavior:
@@ -147,7 +148,10 @@ If you are onboarding a new external endpoint:
 
 At runtime the container does this:
 
-1. `gaia2-init-entrypoint.sh` initializes scenario state and renders the prompt
+1. `gaia2-init-entrypoint.sh` initializes scenario state and renders the prompt.
+   In sequential runs the runner copies the carried agent home and app state in
+   before the container starts, and this step lays the carried app state over
+   the fresh one.
 2. `gaia2-eventd` starts as `gaia2`
 3. `gaia2_adapter.py` starts as `gaia2`
 4. optional `tls_proxy.py` starts as `root` when faketime is active

@@ -137,6 +137,8 @@ RUN useradd -r -s /usr/sbin/nologin -d /var/gaia2 gaia2 && \
 ENV GAIA2_STATE_DIR=/var/gaia2/state
 RUN chown -R gaia2:gaia2 /var/gaia2 && \
     chmod 700 /var/gaia2
+# Only gaia2-init (root) reads the Files backing store; the agent uses the Files CLI.
+RUN chmod 700 /opt/gaia2_filesystem
 
 # ── Non-root agent user ───────────────────────────────────────────────
 RUN useradd -m -s /bin/bash -u 1000 agent

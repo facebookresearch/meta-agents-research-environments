@@ -984,3 +984,159 @@ def test_run_dataset_rejects_language_for_local_dataset_path(tmp_path: Path) -> 
 
     assert result.exit_code != 0
     assert "--language is only supported for HuggingFace dataset IDs" in result.output
+
+
+def _write_sequence_file(path: Path, *chains: tuple[str, list[str]]) -> None:
+    path.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "universe_id": universe_id,
+                    "cap": "execution",
+                    "scenarios": [{"scenario_id": sid} for sid in scenario_ids],
+                }
+            )
+            + "\n"
+            for universe_id, scenario_ids in chains
+        )
+    )
+
+
+_SEQUENTIAL_CONFIG = """
+[target]
+dataset_root = "dataset"
+splits = ["execution"]
+sequences = "seq.jsonl"
+
+[agent]
+image = "localhost/gaia2-oc:latest"
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+context_window = 64000
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+
+[run]
+output_dir = "out"
+"""
+
+
+def test_load_runner_toml_config_reads_sequences_and_context_window(
+    tmp_path: Path,
+) -> None:
+    _write_scenario(tmp_path / "dataset" / "execution" / "s1.json", "s1")
+    _write_sequence_file(tmp_path / "seq.jsonl", ("21", ["s1"]))
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text(_SEQUENTIAL_CONFIG)
+
+    config = load_runner_toml_config(str(config_path))
+
+    assert config.target.sequences == str((tmp_path / "seq.jsonl").resolve())
+    assert config.agent.context_window == 64000
+
+
+@pytest.mark.parametrize(
+    ("replace", "replacement", "message"),
+    [
+        (
+            'dataset_root = "dataset"\nsplits = ["execution"]',
+            'scenario = "dataset/execution/s1.json"',
+            r"\[target\].sequences is only supported for dataset targets",
+        ),
+        (
+            'sequences = "seq.jsonl"',
+            'sequences = "seq.jsonl"\nsubset_manifest = "subset.json"',
+            "cannot be combined with \\[target\\].subset_manifest",
+        ),
+        (
+            'image = "localhost/gaia2-oc:latest"\nprovider = "anthropic"\n'
+            'model = "claude-sonnet-4-6"\ncontext_window = 64000',
+            'image = "localhost/gaia2-hermes:latest"\nprovider = "anthropic"\n'
+            'model = "claude-sonnet-4-6"',
+            "requires an OpenClaw image",
+        ),
+        ('output_dir = "out"', "", r"requires \[run\].output_dir"),
+        (
+            "context_window = 64000",
+            "context_window = 0",
+            r"\[agent\].context_window must be >= 1",
+        ),
+    ],
+)
+def test_load_runner_toml_config_rejects_invalid_sequential_setups(
+    tmp_path: Path, replace: str, replacement: str, message: str
+) -> None:
+    _write_scenario(tmp_path / "dataset" / "execution" / "s1.json", "s1")
+    _write_sequence_file(tmp_path / "seq.jsonl", ("21", ["s1"]))
+    (tmp_path / "subset.json").write_text(json.dumps({"splits": {}}))
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text(_SEQUENTIAL_CONFIG.replace(replace, replacement))
+
+    with pytest.raises(click.UsageError, match=message):
+        load_runner_toml_config(str(config_path))
+
+
+def test_load_runner_toml_config_rejects_context_window_for_other_images(
+    tmp_path: Path,
+) -> None:
+    _write_scenario(tmp_path / "scenario.json", "s1")
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+scenario = "scenario.json"
+
+[agent]
+image = "localhost/gaia2-hermes:latest"
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+context_window = 64000
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+""")
+
+    with pytest.raises(click.UsageError, match="only supported for OpenClaw"):
+        load_runner_toml_config(str(config_path))
+
+
+def test_run_config_dry_run_applies_limit_to_each_chain(tmp_path: Path) -> None:
+    for sid in ("s1", "s2", "s3", "s4"):
+        _write_scenario(tmp_path / "dataset" / "execution" / f"{sid}.json", sid)
+    _write_sequence_file(
+        tmp_path / "seq.jsonl", ("21", ["s2", "s1"]), ("22", ["s4", "s3"])
+    )
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text(
+        _SEQUENTIAL_CONFIG.replace(
+            'sequences = "seq.jsonl"', 'sequences = "seq.jsonl"\nlimit = 1'
+        )
+    )
+
+    result = CliRunner().invoke(
+        main, ["run-config", "--config", str(config_path), "--dry-run"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"Sequences: {(tmp_path / 'seq.jsonl').resolve()}" in result.output
+    assert "Resolved chains: 2" in result.output
+    assert "Resolved scenarios: 2" in result.output
+    assert "Context window: 64000" in result.output
+
+
+def test_run_config_dry_run_reports_scenarios_missing_from_the_dataset(
+    tmp_path: Path,
+) -> None:
+    _write_scenario(tmp_path / "dataset" / "execution" / "s1.json", "s1")
+    _write_sequence_file(tmp_path / "seq.jsonl", ("21", ["s1", "not_in_dataset"]))
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text(_SEQUENTIAL_CONFIG)
+
+    result = CliRunner().invoke(
+        main, ["run-config", "--config", str(config_path), "--dry-run"]
+    )
+
+    assert result.exit_code != 0
+    assert "not_in_dataset" in result.output

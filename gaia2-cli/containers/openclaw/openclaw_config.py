@@ -33,6 +33,10 @@ DEFAULT_ANTHROPIC_CONTEXT_WINDOW = 200_000
 DEFAULT_ANTHROPIC_MAX_TOKENS = 64_000
 DEFAULT_GOOGLE_CONTEXT_WINDOW = 1_048_576
 DEFAULT_GOOGLE_MAX_TOKENS = 65_536
+# Without it, a runaway command holds the run for OpenClaw's 30-minute exec
+# default, long past the daemon's idle timeout. The agent can still ask for
+# more on a single call (exec timeout=...).
+EXEC_TIMEOUT_SECONDS = 60
 HEARTBEAT_CONTENT = """Check the System messages above for environment notifications and act on them.
 Reply HEARTBEAT_OK only if nothing needs attention.
 """
@@ -294,6 +298,22 @@ def resolve_provider_setup(env: Mapping[str, str]) -> ProviderSetup:
     )
 
 
+def resolve_context_tokens(env: Mapping[str, str]) -> int | None:
+    """Return the context window override from ``OPENCLAW_CONTEXT_WINDOW``."""
+    value = first_nonempty(env.get("OPENCLAW_CONTEXT_WINDOW"))
+    if not value:
+        return None
+    try:
+        tokens = int(value)
+    except ValueError:
+        tokens = 0
+    if tokens < 1:
+        raise SetupError(
+            f"OPENCLAW_CONTEXT_WINDOW must be a positive integer, got {value!r}"
+        )
+    return tokens
+
+
 def build_openclaw_config(
     provider_setup: ProviderSetup,
     env: Mapping[str, str],
@@ -308,6 +328,23 @@ def build_openclaw_config(
     timeout_seconds = int(
         first_nonempty(env.get("AGENT_TIMEOUT_SECONDS"), default="1200")
     )
+    agent_defaults: dict[str, Any] = {
+        "skipBootstrap": True,
+        "thinkingDefault": thinking_default,
+        "timeoutSeconds": timeout_seconds,
+        "model": {"primary": f"{provider_setup.provider}/{provider_setup.model}"},
+        "workspace": "/home/agent",
+        "maxConcurrent": 4,
+        "subagents": {"maxConcurrent": 8},
+        "envelopeTimestamp": "off",
+        "envelopeElapsed": "off",
+        "heartbeat": {"every": "24h"},
+        "llm": {"idleTimeoutSeconds": 300},
+    }
+    context_tokens = resolve_context_tokens(env)
+    if context_tokens is not None:
+        # Agent-level window OpenClaw compacts against, whatever the model's.
+        agent_defaults["contextTokens"] = context_tokens
     gateway: dict[str, Any] = {
         "bind": "loopback",
         "mode": "local",
@@ -326,26 +363,15 @@ def build_openclaw_config(
             if provider_setup.provider_config is not None
             else {}
         ),
-        "agents": {
-            "defaults": {
-                "skipBootstrap": True,
-                "thinkingDefault": thinking_default,
-                "timeoutSeconds": timeout_seconds,
-                "model": {
-                    "primary": f"{provider_setup.provider}/{provider_setup.model}"
-                },
-                "workspace": "/home/agent",
-                "maxConcurrent": 4,
-                "subagents": {"maxConcurrent": 8},
-                "envelopeTimestamp": "off",
-                "envelopeElapsed": "off",
-                "heartbeat": {"every": "24h"},
-                "llm": {"idleTimeoutSeconds": 300},
-            }
-        },
+        "agents": {"defaults": agent_defaults},
         "tools": {
             "allow": ["exec"],
-            "exec": {"security": "full", "ask": "off", "safeBins": []},
+            "exec": {
+                "security": "full",
+                "ask": "off",
+                "safeBins": [],
+                "timeoutSec": EXEC_TIMEOUT_SECONDS,
+            },
             "elevated": {"enabled": False},
         },
         "channels": {"defaults": {"heartbeat": {"showOk": True, "showAlerts": True}}},

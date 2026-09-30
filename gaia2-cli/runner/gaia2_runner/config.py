@@ -51,6 +51,8 @@ class TargetConfig:
     subset_manifest: str | None
     limit: int | None
     recursive: bool
+    # Sequence file chaining scenarios per universe (sequential runs).
+    sequences: str | None = None
 
     @property
     def is_single_scenario(self) -> bool:
@@ -71,6 +73,7 @@ class AgentConfig:
     base_url: str | None
     thinking: str
     volumes: tuple[str, ...]
+    context_window: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -343,6 +346,7 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
             "subset_manifest",
             "limit",
             "recursive",
+            "sequences",
         },
     )
     _validate_allowed_keys(
@@ -358,6 +362,7 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
             "base_url",
             "thinking",
             "volumes",
+            "context_window",
         },
     )
     _validate_allowed_keys(
@@ -439,6 +444,13 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
     recursive = _as_bool(
         target_table.get("recursive"), "[target].recursive", default=True
     )
+    sequences = _resolve_path(
+        _as_optional_str(target_table.get("sequences"), "[target].sequences"),
+        base_dir=base_dir,
+        name="[target].sequences",
+        must_exist=True,
+        must_be_dir=False,
+    )
 
     target_count = sum(1 for x in (scenario, dataset_root, dataset) if x)
     if target_count != 1:
@@ -458,6 +470,15 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         raise click.UsageError(
             "[target].recursive is only supported for dataset targets"
         )
+    if scenario and sequences:
+        raise click.UsageError(
+            "[target].sequences is only supported for dataset targets"
+        )
+    if sequences and subset_manifest:
+        raise click.UsageError(
+            "[target].sequences cannot be combined with [target].subset_manifest; "
+            "the sequence file already selects the scenarios"
+        )
 
     target = TargetConfig(
         scenario=scenario,
@@ -468,6 +489,7 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         subset_manifest=subset_manifest,
         limit=limit,
         recursive=recursive,
+        sequences=sequences,
     )
 
     image = _as_required_str(agent_table.get("image"), "[agent].image")
@@ -484,12 +506,26 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         default="low",
     )
     volumes = _as_string_list(agent_table.get("volumes"), "[agent].volumes")
+    context_window = _as_optional_int(
+        agent_table.get("context_window"), "[agent].context_window"
+    )
     api_key = _resolve_secret(agent_table, section_name="agent")
 
     profile = detect_profile(image)
     if profile.requires_agent_llm and (not provider or not model):
         raise click.UsageError(
             "[agent].provider and [agent].model are required for this image"
+        )
+    if context_window is not None and context_window < 1:
+        raise click.UsageError("[agent].context_window must be >= 1")
+    if context_window is not None and profile.context_window_env_key is None:
+        raise click.UsageError(
+            "[agent].context_window is only supported for OpenClaw images"
+        )
+    if target.sequences and profile.agent_home is None:
+        raise click.UsageError(
+            "[target].sequences requires an OpenClaw image: sequential runs carry "
+            "the agent's home from one scenario to the next"
         )
 
     agent = AgentConfig(
@@ -501,6 +537,7 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         base_url=base_url,
         thinking=thinking,
         volumes=volumes,
+        context_window=context_window,
     )
 
     judge = JudgeConfig(
@@ -586,6 +623,11 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         raise click.UsageError("[run].pass_at is only supported for dataset targets")
     if target.is_single_scenario and run.retry:
         raise click.UsageError("[run].retry is only supported for dataset targets")
+    if target.sequences and not run.output_dir:
+        raise click.UsageError(
+            "[target].sequences requires [run].output_dir, where the state "
+            "carried between scenarios is checkpointed"
+        )
 
     return RunnerTomlConfig(
         config_path=str(cfg_path),

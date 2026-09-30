@@ -264,3 +264,74 @@ def test_build_provider_env_skips_agent_env_for_oracle() -> None:
     )
 
     assert pairs == []
+
+
+def test_local_launcher_seeds_dirs_before_starting_the_container(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    scenario_path = tmp_path / "scenario.json"
+    scenario_path.write_text("{}")
+    launcher = LocalLauncher(runtime="podman")
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="container-123\n", stderr="")
+
+    monkeypatch.delenv("GAIA2_PROXY_RELAY_URL", raising=False)
+    monkeypatch.delenv("GAIA2_CA_BUNDLE", raising=False)
+    monkeypatch.setattr("gaia2_runner.launcher.os.path.isfile", lambda _: False)
+    monkeypatch.setattr(launcher, "_run", fake_run)
+
+    container_id = launcher.launch(
+        "localhost/gaia2-oc:latest",
+        str(scenario_path),
+        seed_dirs={
+            "/home/agent": "/tmp/carried/home",
+            "/var/gaia2/carried_state": "/tmp/carried/app_state",
+        },
+    )
+
+    assert container_id == "container-123"
+    assert calls[0][:2] == ["podman", "create"]
+    assert "-d" not in calls[0]
+    assert calls[1:] == [
+        ["podman", "cp", "/tmp/carried/home/.", "container-123:/home/agent"],
+        [
+            "podman",
+            "cp",
+            "/tmp/carried/app_state/.",
+            "container-123:/var/gaia2/carried_state",
+        ],
+        ["podman", "start", "container-123"],
+    ]
+
+
+def test_local_launcher_removes_the_container_when_seeding_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    scenario_path = tmp_path / "scenario.json"
+    scenario_path.write_text("{}")
+    launcher = LocalLauncher(runtime="podman")
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        if args[1] == "cp":
+            raise subprocess.CalledProcessError(125, args)
+        return subprocess.CompletedProcess(args, 0, stdout="container-123\n", stderr="")
+
+    monkeypatch.delenv("GAIA2_PROXY_RELAY_URL", raising=False)
+    monkeypatch.delenv("GAIA2_CA_BUNDLE", raising=False)
+    monkeypatch.setattr("gaia2_runner.launcher.os.path.isfile", lambda _: False)
+    monkeypatch.setattr(launcher, "_run", fake_run)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        launcher.launch(
+            "localhost/gaia2-oc:latest",
+            str(scenario_path),
+            seed_dirs={"/home/agent": "/tmp/carried/home"},
+        )
+
+    assert ["podman", "rm", "-f", "container-123"] in calls
+    assert not any(args[1] == "start" for args in calls)

@@ -198,6 +198,28 @@ prompt_version = "omnilingual-gaia2"
 To translate Gaia2 into another language yourself, see
 [gaia2-cli/mt](gaia2-cli/mt/README.md).
 
+### Sequential Gaia2
+
+Sequential Gaia2 chains the scenarios of each universe. Every scenario still runs in a
+fresh container, but it starts from the agent's memory, conversation and app state left
+by the previous scenario of its chain. The gaia2-cli runner ships chain orderings for the
+`search` (160 scenarios) and `execution` (95 scenarios) splits, one chain per universe.
+OpenClaw images only.
+
+```bash
+# Validate the example config and resolve the chains without launching
+export ANTHROPIC_API_KEY="your-api-key"
+gaia2-runner run-config --config gaia2-cli/runner/examples/openclaw_sonnet_gaia2_sequential_search.toml --dry-run
+
+# Run the evaluation
+gaia2-runner run-config --config gaia2-cli/runner/examples/openclaw_sonnet_gaia2_sequential_search.toml
+```
+
+The example finds its sequence file relative to its own location, so update
+`[target].sequences` if you copy it elsewhere. See
+[Sequential Runs](gaia2-cli/runner/README.md#sequential-runs) for the sequence format,
+checkpoints, `--retry` and the context window override.
+
 ## API
 
 ### Core Concepts

@@ -150,6 +150,8 @@ gaia2-cli/
 
 - [runner/README.md](runner/README.md) for the full runner workflow, config
   format, and CLI details
+- [runner/README.md#sequential-runs](runner/README.md#sequential-runs) for
+  sequential runs, which chain the scenarios of each universe (OpenClaw)
 - [runner/TRACE_FORMAT.md](runner/TRACE_FORMAT.md) for the raw trace contract
 - [containers/openclaw/README.md](containers/openclaw/README.md) for OpenClaw
   internals and debugging

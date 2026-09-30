@@ -24,6 +24,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -39,7 +40,15 @@ from gaia2_runner.launcher import (
     LocalLauncher,
     _allocate_free_port,
 )
-from gaia2_runner.runner import ContainerRunner
+from gaia2_runner.runner import CarriedState, ContainerRunner
+from gaia2_runner.sequential import (
+    Chain,
+    ChainTask,
+    load_sequences,
+    resolve_chains,
+    resume_position,
+    run_chain,
+)
 from gaia2_runner.trace_viewer import (
     generate_all as generate_trace_viewer,
 )
@@ -158,6 +167,9 @@ class ScenarioExecutionConfig:
         *,
         output_dir: str | None = None,
         gateway_port: int | None = None,
+        carry_in: CarriedState | None = None,
+        carry_out: CarriedState | None = None,
+        result_metadata: JsonDict | None = None,
     ) -> JsonDict:
         return runner.run_scenario(
             scenario_json_path=str(scenario_path),
@@ -170,6 +182,9 @@ class ScenarioExecutionConfig:
             extra_volumes=self.extra_volumes,
             output_dir=output_dir,
             gateway_port=gateway_port,
+            carry_in=carry_in,
+            carry_out=carry_out,
+            result_metadata=result_metadata,
         )
 
     def run_scenario(
@@ -351,11 +366,13 @@ def _save_run_config(
     subset: str | None = None,
     splits: list[str] | None = None,
     language: str | None = None,
+    sequences: str | None = None,
     image: str,
     runtime: str,
     provider: str | None,
     model: str | None,
     base_url: str | None,
+    context_window: int | None = None,
     judge_model: str,
     judge_provider: str,
     judge_base_url: str | None,
@@ -418,6 +435,10 @@ def _save_run_config(
             config["splits"] = list(splits)
         if language:
             config["language"] = language
+        if sequences:
+            config["sequences"] = str(Path(sequences).resolve())
+        if context_window is not None:
+            config["context_window"] = context_window
         if num_scenarios is not None:
             previous_total = previous_config.get("num_scenarios")
             if isinstance(previous_total, int) and previous_total > num_scenarios:
@@ -526,8 +547,18 @@ def _build_container_env(
     judge_api_key: str | None = None,
     judge_prompt_version: str | None = None,
     judge_extra_body: dict | None = None,
+    context_window: int | None = None,
 ) -> dict[str, str]:
+    from .container_env import detect_profile
+
     container_env = {"THINKING": thinking}
+    if context_window is not None:
+        context_window_env_key = detect_profile(image).context_window_env_key
+        if context_window_env_key is None:
+            raise click.UsageError(
+                "--context-window is only supported for OpenClaw images"
+            )
+        container_env[context_window_env_key] = str(context_window)
     if notification_mode != "message":
         container_env["GAIA2_NOTIFICATION_MODE"] = notification_mode
     if time_speed is not None:
@@ -550,8 +581,6 @@ def _build_container_env(
         # eventd.py parses it back with json.loads.
         container_env["GAIA2_JUDGE_EXTRA_BODY"] = json.dumps(judge_extra_body)
     if base_url:
-        from .container_env import detect_profile
-
         for key in detect_profile(image).base_url_keys:
             container_env[key] = base_url
     return container_env
@@ -704,6 +733,26 @@ def _read_scenario_id(scenario_path: Path) -> str:
     )
 
 
+def _scenario_result_file(
+    output_dir: str,
+    scenario_path: Path,
+    scenario_id: str,
+    dataset_root: Path | None,
+) -> Path:
+    """Return where a scenario's ``result.json`` lives in a run output dir."""
+    effective_out = _effective_output_dir(output_dir, scenario_path, dataset_root)
+    return Path(effective_out or output_dir) / scenario_id / "result.json"
+
+
+def _read_result_success(result_file: Path) -> bool | None:
+    """Return a persisted verdict, or ``None`` if missing or errored."""
+    try:
+        success = json.loads(result_file.read_text()).get("success")
+    except Exception:
+        return None
+    return success if isinstance(success, bool) else None
+
+
 def _select_retry_scenarios(
     scenario_paths: list[Path],
     output_dir: str,
@@ -715,24 +764,16 @@ def _select_retry_scenarios(
     failed = 0
 
     for scenario_path in scenario_paths:
-        scenario_id = _read_scenario_id(scenario_path)
-        effective_out = _effective_output_dir(output_dir, scenario_path, dataset_root)
-        result_file = Path(effective_out or output_dir) / scenario_id / "result.json"
-        if result_file.exists():
-            try:
-                previous_result = json.loads(result_file.read_text())
-            except Exception:
-                previous_result = None
-            if previous_result is not None:
-                success = previous_result.get("success")
-                if success is True:
-                    passed += 1
-                    continue
-                if success is False:
-                    failed += 1
-                    continue
-
-        rerun.append(scenario_path)
+        result_file = _scenario_result_file(
+            output_dir, scenario_path, _read_scenario_id(scenario_path), dataset_root
+        )
+        success = _read_result_success(result_file)
+        if success is True:
+            passed += 1
+        elif success is False:
+            failed += 1
+        else:
+            rerun.append(scenario_path)
 
     return RetrySelection(scenarios=rerun, passed=passed, failed=failed)
 
@@ -757,24 +798,16 @@ def _select_retry_tasks_multirun(
     for scenario_path in scenario_paths:
         scenario_id = _read_scenario_id(scenario_path)
         for run_number in range(1, pass_at + 1):
-            run_out = str(out / f"run_{run_number}")
-            effective_out = _effective_output_dir(run_out, scenario_path, dataset_root)
-            result_file = Path(effective_out or run_out) / scenario_id / "result.json"
-            if result_file.exists():
-                try:
-                    previous_result = json.loads(result_file.read_text())
-                except Exception:
-                    previous_result = None
-                if previous_result is not None:
-                    success = previous_result.get("success")
-                    if success is True:
-                        passed += 1
-                        continue
-                    if success is False:
-                        failed += 1
-                        continue
-
-            rerun.append((scenario_path, run_number))
+            result_file = _scenario_result_file(
+                str(out / f"run_{run_number}"), scenario_path, scenario_id, dataset_root
+            )
+            success = _read_result_success(result_file)
+            if success is True:
+                passed += 1
+            elif success is False:
+                failed += 1
+            else:
+                rerun.append((scenario_path, run_number))
 
     return MultiRunRetrySelection(tasks=rerun, passed=passed, failed=failed)
 
@@ -1127,6 +1160,28 @@ def _run_dataset_once(
             dataset_root=dataset_root,
         )
 
+    return _finalize_dataset_run(
+        stats,
+        output_dir=output_dir,
+        output_file=output_file,
+        run_number=run_number,
+        total_runs=total_runs,
+        dataset_root=dataset_root,
+        retry=retry,
+    )
+
+
+def _finalize_dataset_run(
+    stats: RunStats,
+    *,
+    output_dir: str | None,
+    output_file: str | None,
+    run_number: int | None = None,
+    total_runs: int | None = None,
+    dataset_root: Path | None = None,
+    retry: bool = False,
+) -> JsonDict:
+    """Write results, regenerate the viewer and summarize a single-pass run."""
     final_stats = stats
     if retry and output_dir:
         final_stats = _load_run_stats_from_disk(output_dir)
@@ -1299,6 +1354,27 @@ def _run_interleaved_passes(
             )
         pbar.close()
 
+    _finalize_passes(
+        stats_by_run,
+        run_output_dirs,
+        output_dir=output_dir,
+        output_requested=output_requested,
+        dataset_root=dataset_root,
+        retry=retry_tasks is not None,
+    )
+
+
+def _finalize_passes(
+    stats_by_run: dict[int, RunStats],
+    run_output_dirs: dict[int, str],
+    *,
+    output_dir: str,
+    output_requested: bool,
+    dataset_root: Path | None,
+    retry: bool,
+) -> None:
+    """Write per-run results and viewers, then summarize a pass@N run."""
+    pass_at = len(run_output_dirs)
     # Build per-run stats for summary. In retry mode, rebuild from disk so
     # the summary reflects ALL results (including preserved previous runs),
     # not just what was run in this session.
@@ -1306,7 +1382,7 @@ def _run_interleaved_passes(
     for run_number in range(1, pass_at + 1):
         run_output_dir = run_output_dirs[run_number]
 
-        if retry_tasks is not None:
+        if retry:
             run_stats = _load_run_stats_from_disk(run_output_dir)
         else:
             run_stats = stats_by_run[run_number]
@@ -1364,6 +1440,7 @@ def _build_execution_config(
     notification_mode: str,
     time_speed: float | None,
     idle_timeout: float | None = None,
+    context_window: int | None = None,
 ) -> tuple[
     ScenarioExecutionConfig,
     str | None,
@@ -1406,6 +1483,7 @@ def _build_execution_config(
             judge_api_key=resolved_judge_api_key,
             judge_prompt_version=judge_prompt_version,
             judge_extra_body=judge_extra_body,
+            context_window=context_window,
         ),
         provider=resolved_provider,
         model=resolved_model,
@@ -1544,10 +1622,213 @@ def _execute_dataset_selection(
     _generate_trace_viewer_if_possible(output_dir)
 
 
+def _resolve_sequence_chains(
+    sequences: str,
+    scenario_paths: list[Path],
+    *,
+    limit: int | None,
+) -> list[Chain]:
+    """Chain the selected scenarios as listed in a sequence file."""
+    scenarios_by_id = {_read_scenario_id(path): path for path in scenario_paths}
+    return resolve_chains(load_sequences(sequences), scenarios_by_id, limit=limit)
+
+
+def _chain_resume_position(
+    chain: Chain,
+    run_dir: Path,
+    dataset_root: Path | None,
+) -> int:
+    """Return where ``--retry`` resumes *chain* in *run_dir*."""
+
+    def has_verdict(position: int) -> bool:
+        result_file = _scenario_result_file(
+            str(run_dir),
+            chain.scenario_paths[position],
+            chain.scenario_ids[position],
+            dataset_root,
+        )
+        return _read_result_success(result_file) is not None
+
+    return resume_position(chain, run_dir, has_verdict=has_verdict)
+
+
+def _run_chain_tasks(
+    tasks: list[ChainTask],
+    *,
+    execution_config: ScenarioExecutionConfig,
+    concurrency: int,
+    dataset_root: Path | None,
+) -> dict[Path, RunStats]:
+    """Run chains in parallel, each strictly in order; return stats per run dir."""
+    stats_by_run_dir = {task.run_dir: RunStats() for task in tasks}
+    progress = RunStats()
+    lock = threading.Lock()
+    pbar = tqdm(
+        total=sum(task.remaining for task in tasks),
+        desc="Scenarios",
+        unit="sc",
+        dynamic_ncols=True,
+    )
+
+    def _run_task(task: ChainTask, adapter_port: int, gateway_port: int) -> None:
+        runner = execution_config.create_runner(adapter_port)
+
+        def run_scenario(
+            scenario_path: Path,
+            carry_in: CarriedState | None,
+            carry_out: CarriedState,
+            result_metadata: JsonDict,
+        ) -> JsonDict:
+            return execution_config.run_with_runner(
+                runner,
+                scenario_path,
+                output_dir=_effective_output_dir(
+                    str(task.run_dir), scenario_path, dataset_root
+                ),
+                gateway_port=gateway_port,
+                carry_in=carry_in,
+                carry_out=carry_out,
+                result_metadata=result_metadata,
+            )
+
+        def record(result: JsonDict) -> None:
+            with lock:
+                stats_by_run_dir[task.run_dir].record(result)
+                progress.record(result)
+                pbar.update(1)
+                pbar.set_postfix(_stats_postfix(progress))
+
+        run_chain(task, run_scenario=run_scenario, on_result=record)
+
+    reserved_ports: set[int] = set()
+    with ThreadPoolExecutor(max_workers=max(1, min(concurrency, len(tasks)))) as pool:
+        futures = {
+            pool.submit(_run_task, task, *_allocate_ports(reserved_ports)): task
+            for task in tasks
+        }
+        for future in as_completed(futures):
+            task = futures[future]
+            try:
+                future.result()
+            except Exception:
+                logger.error(
+                    "Chain %s in %s crashed",
+                    task.chain.key,
+                    task.run_dir,
+                    exc_info=True,
+                )
+    pbar.close()
+    return stats_by_run_dir
+
+
+def _execute_sequential_selection(
+    *,
+    chains: list[Chain],
+    dataset_root: Path | None,
+    execution_config: ScenarioExecutionConfig,
+    concurrency: int,
+    output_dir: str | None,
+    output_file: str | None,
+    pass_at: int,
+    retry: bool,
+    run_config_base: JsonDict,
+) -> None:
+    """Run chained scenarios, carrying agent and app state along each chain.
+
+    Chains run in parallel (up to *concurrency*); the scenarios of a chain run
+    strictly in order. With pass@N every run replays all chains from scratch
+    in its own ``run_<N>/`` directory. ``--retry`` resumes each chain at its
+    first scenario without a verdict and reruns the rest of the chain.
+    """
+    if pass_at < 1:
+        raise click.BadParameter("--pass-at must be >= 1", param_hint="--pass-at")
+    if not output_dir:
+        raise click.UsageError(
+            "Sequential runs require --output-dir, where the state carried "
+            "between scenarios is checkpointed"
+        )
+    if retry and not Path(output_dir).is_dir():
+        raise click.UsageError(
+            "--retry requires --output-dir pointing to an existing run"
+        )
+
+    root = Path(output_dir)
+    run_dirs = (
+        {1: root}
+        if pass_at == 1
+        else {
+            run_number: root / f"run_{run_number}"
+            for run_number in range(1, pass_at + 1)
+        }
+    )
+    num_scenarios = sum(len(chain.scenario_ids) for chain in chains)
+    for run_number, run_dir in run_dirs.items():
+        _save_dataset_run_config(
+            str(run_dir),
+            run_config_base,
+            num_scenarios=num_scenarios,
+            run_number=run_number if pass_at > 1 else None,
+            total_runs=pass_at if pass_at > 1 else None,
+        )
+
+    tasks: list[ChainTask] = []
+    for run_dir in run_dirs.values():
+        for chain in chains:
+            start = _chain_resume_position(chain, run_dir, dataset_root) if retry else 0
+            if start < len(chain.scenario_ids):
+                tasks.append(ChainTask(run_dir=run_dir, chain=chain, start=start))
+
+    if not tasks:
+        logger.info("No scenarios to run (every chain is complete)")
+        return
+
+    logger.info(
+        "Running %d chain(s) with %d scenario(s), up to %d chain(s) at a time "
+        "(pass_at=%d)",
+        len(tasks),
+        sum(task.remaining for task in tasks),
+        min(concurrency, len(tasks)),
+        pass_at,
+    )
+    stats_by_run_dir = _run_chain_tasks(
+        tasks,
+        execution_config=execution_config,
+        concurrency=concurrency,
+        dataset_root=dataset_root,
+    )
+
+    if pass_at == 1:
+        summary = _finalize_dataset_run(
+            stats_by_run_dir.get(root, RunStats()),
+            output_dir=output_dir,
+            output_file=output_file,
+            dataset_root=dataset_root,
+            retry=retry,
+        )
+        logger.info("Summary: %s", json.dumps(summary, indent=2))
+    else:
+        _finalize_passes(
+            {
+                n: stats_by_run_dir.get(run_dir, RunStats())
+                for n, run_dir in run_dirs.items()
+            },
+            {n: str(run_dir) for n, run_dir in run_dirs.items()},
+            output_dir=output_dir,
+            output_requested=output_file is not None,
+            dataset_root=dataset_root,
+            retry=retry,
+        )
+
+
 def _load_run_config_dataset_scenarios(
     config: RunnerTomlConfig,
 ) -> tuple[list[Path], Path | None, str | None, Path | None]:
-    """Resolve a run-config dataset target into concrete scenario paths."""
+    """Resolve a run-config dataset target into concrete scenario paths.
+
+    With a sequence file the limit applies to each chain instead, so the
+    whole selection is returned.
+    """
+    limit = None if config.target.sequences else config.target.limit
     if config.target.is_hf_dataset:
         from gaia2_runner.hf_dataset import download_hf_dataset
 
@@ -1562,7 +1843,7 @@ def _load_run_config_dataset_scenarios(
         if not config.target.splits:
             scenario_paths, resolved_root, _ = _load_dataset_scenarios(
                 cache_dir,
-                config.target.limit,
+                limit,
                 recursive=True,
                 subset=config.target.subset_manifest,
             )
@@ -1591,8 +1872,8 @@ def _load_run_config_dataset_scenarios(
             scenario_paths.extend(split_paths)
 
         scenario_paths = sorted(scenario_paths)
-        if config.target.limit is not None:
-            scenario_paths = scenario_paths[: config.target.limit]
+        if limit is not None:
+            scenario_paths = scenario_paths[:limit]
 
         return scenario_paths, dataset_root, None, dataset_root
 
@@ -1604,7 +1885,7 @@ def _load_run_config_dataset_scenarios(
     if not config.target.splits:
         scenario_paths, resolved_root, tmpdir = _load_dataset_scenarios(
             config.target.dataset_root,
-            config.target.limit,
+            limit,
             recursive=config.target.recursive,
             subset=config.target.subset_manifest,
         )
@@ -1631,8 +1912,8 @@ def _load_run_config_dataset_scenarios(
         scenario_paths.extend(split_paths)
 
     scenario_paths = sorted(scenario_paths)
-    if config.target.limit is not None:
-        scenario_paths = scenario_paths[: config.target.limit]
+    if limit is not None:
+        scenario_paths = scenario_paths[:limit]
 
     return scenario_paths, dataset_root, None, None
 
@@ -1697,6 +1978,7 @@ def _print_run_config_summary(
     config: RunnerTomlConfig,
     *,
     scenario_count: int | None = None,
+    chain_count: int | None = None,
     effective_retry: bool | None = None,
 ) -> None:
     """Print a concise summary of a resolved run-config file."""
@@ -1725,6 +2007,10 @@ def _print_run_config_summary(
             click.echo("Splits: all files under dataset_root")
         if config.target.subset_manifest:
             click.echo(f"Subset manifest: {config.target.subset_manifest}")
+        if config.target.sequences:
+            click.echo(f"Sequences: {config.target.sequences}")
+        if chain_count is not None:
+            click.echo(f"Resolved chains: {chain_count}")
         if scenario_count is not None:
             click.echo(f"Resolved scenarios: {scenario_count}")
 
@@ -1736,6 +2022,8 @@ def _print_run_config_summary(
             else "oracle"
         )
     )
+    if config.agent.context_window is not None:
+        click.echo(f"Context window: {config.agent.context_window}")
     click.echo(f"Judge: {config.judge.provider}/{config.judge.model}")
     if config.judge.prompt_version:
         click.echo(f"Judge prompts: {config.judge.prompt_version}")
@@ -1859,6 +2147,13 @@ def main(env_file: Path | None) -> None:
     help="Time speed multiplier for fast-forward mode (e.g. 5 = 5x faster). "
     "Speeds up ENV event delays in time scenarios.",
 )
+@click.option(
+    "--context-window",
+    default=None,
+    type=click.IntRange(min=1),
+    help="Override the agent's context window in tokens (OpenClaw only). "
+    "Smaller values make the agent compact its conversation sooner.",
+)
 def run(
     scenario: str,
     image: str,
@@ -1880,6 +2175,7 @@ def run(
     log_level: str,
     notification_mode: str,
     time_speed: float | None,
+    context_window: int | None,
 ) -> None:
     """Run a single scenario in a container and grade the result."""
     (
@@ -1906,6 +2202,7 @@ def run(
         volumes=volumes,
         notification_mode=notification_mode,
         time_speed=time_speed,
+        context_window=context_window,
     )
     setup_logging(log_level)
 
@@ -1918,6 +2215,7 @@ def run(
         "provider": resolved_provider,
         "model": resolved_model,
         "base_url": base_url,
+        "context_window": context_window,
         "judge_model": resolved_judge_model,
         "judge_provider": resolved_judge_provider,
         "judge_base_url": resolved_judge_base_url,
@@ -2188,6 +2486,22 @@ def serve(output_dir: str, port: int | None, interval: int, log_level: str) -> N
     type=click.Path(exists=True),
     help="Path to a subset manifest JSON. Only scenarios listed will be run.",
 )
+@click.option(
+    "--sequences",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Sequence file (JSONL) chaining scenarios per universe. A chain's "
+    "scenarios run in order, each starting from the agent home and app state "
+    "the previous one left behind. OpenClaw images only; requires --output-dir. "
+    "--limit then keeps the first N scenarios of each chain.",
+)
+@click.option(
+    "--context-window",
+    default=None,
+    type=click.IntRange(min=1),
+    help="Override the agent's context window in tokens (OpenClaw only). "
+    "Smaller values make the agent compact its conversation sooner.",
+)
 def run_dataset(
     dataset: str,
     splits: str | None,
@@ -2218,6 +2532,8 @@ def run_dataset(
     notification_mode: str,
     time_speed: float | None,
     subset: str | None,
+    sequences: str | None,
+    context_window: int | None,
 ) -> None:
     """Run multiple scenarios from a dataset directory, JSONL file, or HuggingFace dataset."""
     (
@@ -2244,8 +2560,23 @@ def run_dataset(
         volumes=volumes,
         notification_mode=notification_mode,
         time_speed=time_speed,
+        context_window=context_window,
     )
     setup_logging(log_level)
+
+    if sequences:
+        from .container_env import detect_profile
+
+        if detect_profile(image).agent_home is None:
+            raise click.UsageError(
+                "--sequences requires an OpenClaw image: sequential runs carry "
+                "the agent's home from one scenario to the next"
+            )
+        if subset:
+            raise click.UsageError(
+                "--sequences cannot be combined with --subset; the sequence "
+                "file already selects the scenarios"
+            )
 
     from gaia2_runner.hf_dataset import download_hf_dataset, is_hf_dataset
 
@@ -2274,6 +2605,7 @@ def run_dataset(
         "provider": resolved_provider,
         "model": resolved_model,
         "base_url": base_url,
+        "context_window": context_window,
         "judge_model": resolved_judge_model,
         "judge_provider": resolved_judge_provider,
         "judge_base_url": resolved_judge_base_url,
@@ -2283,25 +2615,43 @@ def run_dataset(
         "limit": limit,
         "splits": _resolved_dataset_splits_for_metadata(dataset, split_list, language),
         "language": language if is_hf_source else None,
+        "sequences": sequences,
     }
 
+    # With a sequence file the limit applies to each chain.
     scenario_paths, dataset_root, tmpdir = _load_dataset_scenarios(
-        effective_dataset, limit, recursive=not non_recursive, subset=subset
+        effective_dataset,
+        None if sequences else limit,
+        recursive=not non_recursive,
+        subset=subset,
     )
     try:
-        _execute_dataset_selection(
-            dataset_label=dataset,
-            scenario_paths=scenario_paths,
-            dataset_root=dataset_root,
-            execution_config=execution_config,
-            adapter_port=adapter_port,
-            concurrency=concurrency,
-            output_dir=output_dir,
-            output_file=output,
-            pass_at=pass_at,
-            retry=retry,
-            run_config_base=run_config_base,
-        )
+        if sequences:
+            _execute_sequential_selection(
+                chains=_resolve_sequence_chains(sequences, scenario_paths, limit=limit),
+                dataset_root=dataset_root,
+                execution_config=execution_config,
+                concurrency=concurrency,
+                output_dir=output_dir,
+                output_file=output,
+                pass_at=pass_at,
+                retry=retry,
+                run_config_base=run_config_base,
+            )
+        else:
+            _execute_dataset_selection(
+                dataset_label=dataset,
+                scenario_paths=scenario_paths,
+                dataset_root=dataset_root,
+                execution_config=execution_config,
+                adapter_port=adapter_port,
+                concurrency=concurrency,
+                output_dir=output_dir,
+                output_file=output,
+                pass_at=pass_at,
+                retry=retry,
+                run_config_base=run_config_base,
+            )
 
     finally:
         if tmpdir:
@@ -2372,6 +2722,7 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             notification_mode=config.run.notification_mode,
             time_speed=config.run.time_speed,
             idle_timeout=config.run.idle_timeout,
+            context_window=config.agent.context_window,
         )
 
         run_config_base: JsonDict = {
@@ -2384,6 +2735,7 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             "provider": resolved_provider,
             "model": resolved_model,
             "base_url": config.agent.base_url,
+            "context_window": config.agent.context_window,
             "judge_model": resolved_judge_model,
             "judge_provider": resolved_judge_provider,
             "judge_base_url": resolved_judge_base_url,
@@ -2406,9 +2758,19 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
         _load_run_config_dataset_scenarios(config)
     )
     try:
+        chains: list[Chain] | None = None
+        if config.target.sequences:
+            chains = _resolve_sequence_chains(
+                config.target.sequences, scenario_paths, limit=config.target.limit
+            )
         _print_run_config_summary(
             config,
-            scenario_count=len(scenario_paths),
+            scenario_count=(
+                len(scenario_paths)
+                if chains is None
+                else sum(len(chain.scenario_ids) for chain in chains)
+            ),
+            chain_count=None if chains is None else len(chains),
             effective_retry=effective_retry,
         )
         if dry_run:
@@ -2441,6 +2803,7 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             notification_mode=config.run.notification_mode,
             time_speed=config.run.time_speed,
             idle_timeout=config.run.idle_timeout,
+            context_window=config.agent.context_window,
         )
 
         run_config_base = {
@@ -2456,11 +2819,13 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
                 config.target.language,
             ),
             "language": config.target.language,
+            "sequences": config.target.sequences,
             "image": config.agent.image,
             "runtime": config.agent.runtime,
             "provider": resolved_provider,
             "model": resolved_model,
             "base_url": config.agent.base_url,
+            "context_window": config.agent.context_window,
             "judge_model": resolved_judge_model,
             "judge_provider": resolved_judge_provider,
             "judge_base_url": resolved_judge_base_url,
@@ -2470,21 +2835,34 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             "limit": config.target.limit,
         }
 
-        _execute_dataset_selection(
-            dataset_label=config.target.dataset
-            or config.target.dataset_root
-            or config.config_path,
-            scenario_paths=scenario_paths,
-            dataset_root=dataset_root,
-            execution_config=execution_config,
-            adapter_port=config.run.adapter_port,
-            concurrency=config.run.concurrency,
-            output_dir=config.run.output_dir,
-            output_file=config.run.output,
-            pass_at=config.run.pass_at,
-            retry=effective_retry,
-            run_config_base=run_config_base,
-        )
+        if chains is not None:
+            _execute_sequential_selection(
+                chains=chains,
+                dataset_root=dataset_root,
+                execution_config=execution_config,
+                concurrency=config.run.concurrency,
+                output_dir=config.run.output_dir,
+                output_file=config.run.output,
+                pass_at=config.run.pass_at,
+                retry=effective_retry,
+                run_config_base=run_config_base,
+            )
+        else:
+            _execute_dataset_selection(
+                dataset_label=config.target.dataset
+                or config.target.dataset_root
+                or config.config_path,
+                scenario_paths=scenario_paths,
+                dataset_root=dataset_root,
+                execution_config=execution_config,
+                adapter_port=config.run.adapter_port,
+                concurrency=config.run.concurrency,
+                output_dir=config.run.output_dir,
+                output_file=config.run.output,
+                pass_at=config.run.pass_at,
+                retry=effective_retry,
+                run_config_base=run_config_base,
+            )
     finally:
         if tmpdir:
             shutil.rmtree(tmpdir, ignore_errors=True)

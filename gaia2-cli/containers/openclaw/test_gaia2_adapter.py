@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 import types
@@ -49,6 +50,7 @@ def reset_adapter_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, mock.Magic
     monkeypatch.setattr(adapter, "write_aui_event", aui_mock)
     monkeypatch.setattr(adapter._state, "buffer_and_broadcast", buffer_mock)
     adapter._latest_chat_delta.clear()
+    adapter._own_run_ids.clear()
     adapter._on_response = on_response
 
     yield {
@@ -59,6 +61,7 @@ def reset_adapter_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, mock.Magic
 
     adapter._on_response = None
     adapter._latest_chat_delta.clear()
+    adapter._own_run_ids.clear()
 
 
 class TestMessageText:
@@ -245,12 +248,55 @@ class TestBackendResponse:
         self,
         reset_adapter_state: dict[str, mock.MagicMock],
     ) -> None:
+        adapter._own_run_ids.add("run-2")
         response = {"state": "final", "run_id": "run-2", "message": ""}
 
         adapter.on_backend_response(response)
 
         reset_adapter_state["buffer"].assert_called_once_with(response)
         reset_adapter_state["aui"].assert_called_once_with("send_message_to_user", "")
+
+    def test_silent_final_from_openclaw_own_run_is_dropped(
+        self,
+        reset_adapter_state: dict[str, mock.MagicMock],
+    ) -> None:
+        """A pre-compaction memory flush must not end the scenario."""
+        adapter._own_run_ids.add("task-run")
+        response = {"state": "final", "run_id": "memory-flush-run", "message": ""}
+
+        adapter.on_backend_response(response)
+
+        reset_adapter_state["buffer"].assert_not_called()
+        reset_adapter_state["aui"].assert_not_called()
+
+    def test_final_with_text_from_openclaw_own_run_emits_boundary(
+        self,
+        reset_adapter_state: dict[str, mock.MagicMock],
+    ) -> None:
+        """Replies to wake-hook notifications come from runs chat.send did not start."""
+        response = {"state": "final", "run_id": "wake-run", "message": "Handled it."}
+
+        adapter.on_backend_response(response)
+
+        reset_adapter_state["aui"].assert_called_once_with(
+            "send_message_to_user", "Handled it."
+        )
+
+    def test_send_message_records_the_run_it_starts(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        async def fake_send_rpc(method: str, params: dict) -> dict:
+            return {"ok": True, "payload": {"runId": "run-9"}}
+
+        monkeypatch.setattr(adapter, "_connected", True)
+        monkeypatch.setattr(adapter, "_ws", object())
+        monkeypatch.setattr(adapter, "_send_rpc", fake_send_rpc)
+
+        result = asyncio.run(adapter.send_message("Do the task"))
+
+        assert result == {"run_id": "run-9"}
+        assert "run-9" in adapter._own_run_ids
 
     def test_error_with_text_emits_boundary(
         self,
