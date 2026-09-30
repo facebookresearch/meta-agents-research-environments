@@ -1,0 +1,31 @@
+# OpenClaw + Anthropic Sonnet 4.6 on sequential search, pass@1.
+#
+# Chains the 160 search scenarios per universe (10 chains). Each scenario
+# starts from the agent home (memory + conversation) and app state the
+# previous scenario of its chain left behind.
+
+[target]
+dataset = "meta-agents-research-environments/gaia2-cli"
+splits = ["search"]
+sequences = "../sequences/search.jsonl"
+
+[agent]
+image = "localhost/gaia2-oc:latest"
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+api_key_env = "ANTHROPIC_API_KEY"
+thinking = "high"
+# context_window = 64000  # compact the carried conversation sooner
+
+[judge]
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+api_key_env = "ANTHROPIC_API_KEY"
+
+[run]
+timeout = 900
+health_timeout = 180
+concurrency = 10  # chains run in parallel; scenarios within a chain never do
+pass_at = 1
+output_dir = "/tmp/gaia2_openclaw_sonnet_sequential_search"
+log_level = "INFO"

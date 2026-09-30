@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from gaia2_runner.launcher import ContainerLauncher
-from gaia2_runner.runner import ContainerRunner
+from gaia2_runner.runner import CarriedState, ContainerRunner
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -767,3 +767,168 @@ class TestBuildContainerEnv:
 
         assert env["GAIA2_JUDGE_API_KEY"] == "openai-judge-key"
         assert "pulling from OPENAI_API_KEY" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# State carried between chained scenarios (sequential runs)
+# ---------------------------------------------------------------------------
+
+
+def _fake_copy_from(trees: dict[str, dict[str, str]]):
+    """copy_from side effect that materializes canned container directories."""
+
+    def copy_from(container_id: str, src_path: str, dst_path: str) -> None:
+        for relative, content in trees.get(src_path, {}).items():
+            path = Path(dst_path) / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+
+    return copy_from
+
+
+class TestCarriedState:
+    def _run(
+        self,
+        runner: ContainerRunner,
+        scenario_path: Path,
+        **kwargs,
+    ) -> dict:
+        def fake_poll(*args, **poll_kwargs):
+            runner._last_daemon_status = {
+                "status": "complete",
+                "judgment": {"success": True},
+            }
+            return "done", "complete"
+
+        with (
+            patch.object(runner, "_poll_for_response", side_effect=fake_poll),
+            patch.object(runner, "_collect_events", return_value=("", "done")),
+            patch.object(runner, "_extract_trace_file"),
+            patch.object(runner, "_extract_daemon_logs"),
+        ):
+            return runner.run_scenario(str(scenario_path), **kwargs)
+
+    def test_seeds_carried_state_and_captures_the_next_one(
+        self, tmp_path: Path
+    ) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        launcher = _mock_launcher()
+        launcher.copy_from.side_effect = _fake_copy_from(
+            {
+                "/home/agent/.": {
+                    "MEMORY.md": "remember",
+                    ".openclaw/agents/main/sessions/main.jsonl": "{}",
+                },
+                "/var/gaia2/state/.": {
+                    "Calendar.json": "{}",
+                    "filesystem/notes.txt": "hi",
+                    "events.jsonl": "",
+                    "daemon_status.json": "{}",
+                    "user_details.json": "{}",
+                    "Calendar.lock": "",
+                },
+            }
+        )
+        runner = ContainerRunner(launcher=launcher, image="localhost/gaia2-oc:latest")
+        carry_in = CarriedState(
+            home_dir=tmp_path / "in_home", app_state_dir=tmp_path / "in_state"
+        )
+        carry_out = CarriedState(
+            home_dir=tmp_path / "out_home", app_state_dir=tmp_path / "out_state"
+        )
+
+        result = self._run(
+            runner,
+            scenario_path,
+            output_dir=str(tmp_path / "out"),
+            carry_in=carry_in,
+            carry_out=carry_out,
+            result_metadata={"universe_id": "21", "universe_position": 3},
+        )
+
+        assert launcher.launch.call_args.kwargs["seed_dirs"] == {
+            "/home/agent": str(tmp_path / "in_home"),
+            "/var/gaia2/carried_state": str(tmp_path / "in_state"),
+        }
+        assert result["success"] is True
+        assert "carry_error" not in result
+        assert (tmp_path / "out_home" / "MEMORY.md").read_text() == "remember"
+        assert sorted(p.name for p in (tmp_path / "out_state").iterdir()) == [
+            "Calendar.json",
+            "filesystem",
+        ]
+        saved = json.loads(
+            (tmp_path / "out" / "test_scenario" / "result.json").read_text()
+        )
+        assert (saved["universe_id"], saved["universe_position"]) == ("21", 3)
+
+    def test_first_scenario_of_a_chain_is_not_seeded(self, tmp_path: Path) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        launcher = _mock_launcher()
+        runner = ContainerRunner(launcher=launcher, image="localhost/gaia2-oc:latest")
+
+        self._run(
+            runner,
+            scenario_path,
+            carry_out=CarriedState(
+                home_dir=tmp_path / "out_home", app_state_dir=tmp_path / "out_state"
+            ),
+        )
+
+        assert launcher.launch.call_args.kwargs["seed_dirs"] is None
+
+    def test_config_holding_the_api_key_is_not_carried(self, tmp_path: Path) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        launcher = _mock_launcher()
+        launcher.copy_from.side_effect = _fake_copy_from(
+            {
+                "/home/agent/.": {
+                    ".openclaw/openclaw.json": '{"apiKey": "sk-test"}',
+                    ".openclaw/agents/main/agent/auth-profiles.json": "sk-test",
+                    ".openclaw/agents/main/sessions/main.jsonl": "{}",
+                },
+            }
+        )
+        runner = ContainerRunner(launcher=launcher, image="localhost/gaia2-oc:latest")
+        home = tmp_path / "out_home"
+
+        self._run(runner, scenario_path, carry_out=CarriedState(home_dir=home))
+
+        assert sorted(
+            p.relative_to(home).as_posix() for p in home.rglob("*") if p.is_file()
+        ) == [".openclaw/agents/main/sessions/main.jsonl"]
+
+    def test_verdict_without_captured_state_becomes_an_error(
+        self, tmp_path: Path
+    ) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        launcher = _mock_launcher()
+        launcher.copy_from.side_effect = RuntimeError("podman cp failed")
+        runner = ContainerRunner(launcher=launcher, image="localhost/gaia2-oc:latest")
+        carry_out = CarriedState(
+            home_dir=tmp_path / "out_home", app_state_dir=tmp_path / "out_state"
+        )
+
+        result = self._run(runner, scenario_path, carry_out=carry_out)
+
+        assert result["success"] is None
+        assert result["carry_error"] == "podman cp failed"
+        assert not (tmp_path / "out_home").exists()
+        assert not (tmp_path / "out_home.partial").exists()
+
+    def test_images_without_an_agent_home_cannot_carry_state(
+        self, tmp_path: Path
+    ) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        runner = _make_runner()
+
+        result = self._run(
+            runner,
+            scenario_path,
+            carry_in=CarriedState(home_dir=tmp_path / "home"),
+            result_metadata={"universe_position": 1},
+        )
+
+        assert result["success"] is None
+        assert "does not support sequential runs" in result["error"]
+        assert result["universe_position"] == 1

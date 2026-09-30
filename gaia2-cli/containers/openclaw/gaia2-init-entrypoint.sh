@@ -22,7 +22,11 @@
 #   GAIA2_JUDGE_BASE_URL — optional API base URL override for the in-container judge
 #   GAIA2_JUDGE_API_KEY  — optional API key override for the in-container judge
 #   FAKETIME             — simulated start time (e.g., "2025-09-01 07:00:00")
+#   OPENCLAW_CONTEXT_WINDOW — optional context window override (tokens)
 #   API_KEY / provider-specific keys — forwarded to the agent runtime
+#
+# Sequential runs: before start, the runner copies the previous scenario's
+# /home/agent and app state (into $CARRIED_STATE_DIR) into the container.
 
 set -eo pipefail
 
@@ -31,6 +35,7 @@ export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 SCENARIO_PATH="${GAIA2_SCENARIO:-/var/gaia2/custom_scenario.json}"
 ADAPTER_PORT="${GAIA2_ADAPTER_PORT:-8090}"
 STATE_DIR=/var/gaia2/state
+CARRIED_STATE_DIR=/var/gaia2/carried_state
 FAKETIME_FILE=/tmp/faketime.rc
 EVENTD_LOG=/tmp/gaia2-eventd.log
 ADAPTER_LOG=/tmp/gaia2-adapter.log
@@ -87,6 +92,33 @@ render_agent_prompt() {
 }
 
 
+claim_agent_home() {
+    # A home carried over from the previous scenario of a sequential run is
+    # copied in root-owned; hand it back to the agent so it can keep writing
+    # its memory, session and scratch files. Read-only mounts under the home
+    # must not abort the run.
+    chown -R agent:agent /home/agent \
+        || echo "[gaia2-init] Warning: could not give all of /home/agent to the agent user" >&2
+}
+
+
+restore_carried_state() {
+    # Sequential runs continue from the app state the previous scenario left
+    # behind instead of the scenario's baseline. Apps missing from the carried
+    # copy keep their freshly initialised state.
+    [ -d "$CARRIED_STATE_DIR" ] || return 0
+
+    local entry
+    for entry in "$CARRIED_STATE_DIR"/*; do
+        [ -e "$entry" ] || continue
+        rm -rf "${STATE_DIR:?}/$(basename "$entry")"
+    done
+    cp -a "$CARRIED_STATE_DIR"/. "$STATE_DIR"/
+    rm -rf "$CARRIED_STATE_DIR"
+    echo "[gaia2-init] Restored app state carried over from the previous scenario" >&2
+}
+
+
 init_state() {
     if [ ! -f "$SCENARIO_PATH" ]; then
         echo "[gaia2-init] No scenario found at $SCENARIO_PATH, skipping init" >&2
@@ -98,6 +130,7 @@ init_state() {
     gaia2-init --scenario "$SCENARIO_PATH" \
         --state-dir "$STATE_DIR" \
         ${GAIA2_FS_BACKING_DIR:+--fs-backing-dir "$GAIA2_FS_BACKING_DIR"}
+    restore_carried_state
     chown -R gaia2:gaia2 "$STATE_DIR"
 
     # Lock down /var/gaia2 — agent must not read scenario (ground truth) or
@@ -263,6 +296,7 @@ STATIC
         no_proxy NO_PROXY http_proxy https_proxy HTTP_PROXY HTTPS_PROXY \
         NODE_EXTRA_CA_CERTS FAKETIME                                 \
         OPENCLAW_GATEWAY_PORT OPENCLAW_GATEWAY_URL OPENCLAW_GATEWAY_TOKEN OPENCLAW_HOOKS_TOKEN \
+        OPENCLAW_CONTEXT_WINDOW \
         GAIA2_TRACE_FILE \
         DONT_FAKE_MONOTONIC TLS_PROXY_PORT \
     ; do
@@ -286,6 +320,7 @@ exec_agent_entrypoint() {
 
 
 main() {
+    claim_agent_home
     init_state
     start_eventd
     start_adapter

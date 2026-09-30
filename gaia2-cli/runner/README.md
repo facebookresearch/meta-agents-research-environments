@@ -202,6 +202,8 @@ Target selection supports:
   With `language`, `"all"` means the four translated capabilities — `execution`,
   `search`, `ambiguity`, `adaptability` — as there is no translated `time` split.
 - `subset = "/path/to/subset.json"` to limit runs to a manifest
+- `sequences = "/path/to/sequences.jsonl"` to chain scenarios per universe (see
+  [Sequential Runs](#sequential-runs))
 
 For dataset targets, the runner preserves split subdirectories in the output
 tree automatically.
@@ -232,6 +234,53 @@ Curated examples:
 - `runner/examples/openclaw_qwen_omnilingual_gaia2_pass3.toml` — Omnilingual-GAIA2: the published multilingual dataset via `language`, OpenClaw + locally served Qwen3.6-27B, `gpt-oss-120b` judge on a second endpoint, multilingual judge prompts, pass@3
 - `runner/examples/template_hermes_openai_compat.toml` — generic Hermes template for custom OpenAI chat-completions-compatible endpoints
 - `runner/examples/template_openclaw_openai_compat.toml` — generic OpenClaw template for custom OpenAI chat-completions-compatible endpoints
+- `runner/examples/openclaw_sonnet_gaia2_sequential_search.toml` / `openclaw_sonnet_gaia2_sequential_execution.toml` — sequential search / execution chains, OpenClaw + direct Anthropic Sonnet 4.6, pass@1
+
+## Sequential Runs
+
+Sequential runs chain the scenarios of each universe. Every scenario still runs
+in a fresh container, but it starts from the agent home (OpenClaw memory and
+conversation session) and the app state that the previous scenario of its chain
+left behind. OpenClaw images only.
+
+A sequence file lists one chain per line, in order:
+
+```json
+{"universe_id": "21", "cap": "execution", "scenarios": [{"scenario_id": "scenario_universe_21_2m6akl"}, ...]}
+```
+
+Two ship in `runner/sequences/`:
+
+- `search.jsonl` — the 160 search scenarios, one chain per universe (10)
+- `execution.jsonl` — 95 of the 160 execution scenarios, one chain per universe
+  (10), ordered so that one scenario's writes do not break a later scenario's
+  oracle
+
+```toml
+[target]
+dataset = "meta-agents-research-environments/gaia2-cli"
+splits = ["execution"]
+sequences = "../sequences/execution.jsonl"  # relative to this config file
+
+[agent]
+image = "localhost/gaia2-oc:latest"
+context_window = 64000  # optional: compact the carried conversation sooner
+```
+
+With direct flags: `run-dataset --sequences runner/sequences/execution.jsonl`,
+plus `--context-window N` if needed.
+
+- Chains run in parallel up to `concurrency`; the scenarios of a chain never do.
+- `limit` keeps the first N scenarios of each chain.
+- The agent home carries over after every scenario, minus the OpenClaw config
+  files that hold the API key (rewritten at every start). The app state only
+  advances when a scenario got a verdict, so an errored scenario leaves it
+  unchanged and the chain carries on.
+- `pass_at = N` replays every chain from scratch in `run_1/` … `run_N/`.
+- After each judged scenario the carried state is checkpointed under
+  `sequential_state/<chain>/` in the run directory. `--retry` resumes each chain
+  at its first scenario without a verdict and reruns the rest of that chain.
+- Results gain `universe_id` and `universe_position` (0-based) fields.
 
 ## Secrets and `.env`
 
@@ -330,6 +379,9 @@ Single-scenario or single-pass dataset outputs:
 
 When `pass_at > 1`, the root contains `run_1/` through `run_N/`. Each run gets
 its own `results.jsonl`, `run_config.json`, and `index.html`.
+
+Sequential runs add `sequential_state/<chain>/<position>_<scenario_id>.tar.gz`
+checkpoints to each run directory.
 
 ## Networking
 

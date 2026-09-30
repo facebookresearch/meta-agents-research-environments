@@ -338,3 +338,47 @@ def test_cli_writes_files_and_emits_shell_exports(tmp_path: Path) -> None:
     assert (
         openclaw_json["models"]["providers"]["anthropic"]["api"] == "anthropic-messages"
     )
+
+
+def test_context_window_override_sets_agent_context_tokens() -> None:
+    outputs = openclaw_config.generate_setup(
+        {
+            "PROVIDER": "anthropic",
+            "API_KEY": "anthropic-key",
+            "OPENCLAW_CONTEXT_WINDOW": "64000",
+        },
+        now=FIXED_NOW,
+    )
+
+    assert outputs.openclaw_config["agents"]["defaults"]["contextTokens"] == 64000
+
+
+def test_context_tokens_are_left_to_the_model_by_default() -> None:
+    outputs = openclaw_config.generate_setup(
+        {"PROVIDER": "anthropic", "API_KEY": "anthropic-key"},
+        now=FIXED_NOW,
+    )
+
+    assert "contextTokens" not in outputs.openclaw_config["agents"]["defaults"]
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "lots"])
+def test_invalid_context_window_override_is_rejected(value: str) -> None:
+    with pytest.raises(openclaw_config.SetupError, match="OPENCLAW_CONTEXT_WINDOW"):
+        openclaw_config.generate_setup(
+            {
+                "PROVIDER": "anthropic",
+                "API_KEY": "anthropic-key",
+                "OPENCLAW_CONTEXT_WINDOW": value,
+            },
+            now=FIXED_NOW,
+        )
+
+
+def test_exec_commands_time_out_after_a_minute_by_default() -> None:
+    outputs = openclaw_config.generate_setup(
+        {"PROVIDER": "anthropic", "API_KEY": "anthropic-key"},
+        now=FIXED_NOW,
+    )
+
+    assert outputs.openclaw_config["tools"]["exec"]["timeoutSec"] == 60

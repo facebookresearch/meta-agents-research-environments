@@ -19,6 +19,8 @@ import os
 import shutil
 import tempfile
 import time
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -43,6 +45,40 @@ _CONTAINER_TRACE_PATH = "/tmp/trace.jsonl"
 _CONTAINER_DAEMON_STATUS_PATH = "/var/gaia2/state/daemon_status.json"
 _TERMINAL_DAEMON_STATUSES = frozenset({"complete", "stopped", "error"})
 _POLL_FAILURE_SHORTCIRCUIT_THRESHOLD = 5
+
+# App state carried between chained scenarios (sequential runs). The init
+# entrypoint lays the carried copy over the fresh scenario state.
+_CONTAINER_STATE_DIR = "/var/gaia2/state"
+_CONTAINER_CARRIED_STATE_DIR = "/var/gaia2/carried_state"
+# Files the daemon and CLI tools write for one scenario run; everything else
+# in the state dir is app state.
+_SCENARIO_RUNTIME_STATE_FILES = frozenset(
+    {
+        "events.jsonl",
+        "daemon_status.json",
+        "judgments.jsonl",
+        "notifications.jsonl",
+        "agent_responses.jsonl",
+        "user_details.json",
+    }
+)
+
+
+def _is_scenario_runtime_file(name: str) -> bool:
+    return name in _SCENARIO_RUNTIME_STATE_FILES or name.endswith(".lock")
+
+
+@dataclass(frozen=True, slots=True)
+class CarriedState:
+    """Host directories with the state one chained scenario hands to the next.
+
+    ``home_dir`` mirrors the agent's home directory (memory, conversation
+    session, scratch files) and ``app_state_dir`` holds the app state files.
+    Either is ``None`` when there is nothing to carry.
+    """
+
+    home_dir: Path | None = None
+    app_state_dir: Path | None = None
 
 
 class ContainerRunner:
@@ -78,6 +114,9 @@ class ContainerRunner:
         extra_volumes: tuple[str, ...] | None = None,
         output_dir: str | None = None,
         gateway_port: int | None = None,
+        carry_in: CarriedState | None = None,
+        carry_out: CarriedState | None = None,
+        result_metadata: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Run a scenario end-to-end and return the result.
 
@@ -98,6 +137,13 @@ class ContainerRunner:
                 container binds the gateway to this port instead of the
                 default (18789).  Required for concurrent execution with
                 ``--network=host``.
+            carry_in: State left by the previous scenario of a chain, copied
+                into the container before it starts (sequential runs).
+            carry_out: Host directories, which must not exist yet, that
+                receive the agent home and app state once the scenario ends.
+                A verdict whose state could not be captured is reported as
+                an error, since the chain cannot continue from it.
+            result_metadata: Extra fields recorded in the result.
 
         Returns:
             Dict with keys: scenario_id, success, reward, num_agent_events,
@@ -143,6 +189,7 @@ class ContainerRunner:
                 extra_volumes=extra_volumes,
                 adapter_port=self.adapter_port,
                 gateway_port=gateway_port,
+                seed_dirs=self._seed_dirs(carry_in),
             )
 
             host_adapter_port = (
@@ -302,6 +349,17 @@ class ContainerRunner:
 
             self._extract_trace_file(container_id, artifact_dir)
 
+            if carry_out is not None:
+                carry_error = self._capture_carried_state(container_id, carry_out)
+                if carry_error is not None:
+                    result["carry_error"] = carry_error
+                    if result.get("success") is not None:
+                        result["success"] = None
+                        result.pop("reward", None)
+                        result["error"] = f"Carried state not captured: {carry_error}"
+            if result_metadata:
+                result.update(result_metadata)
+
             if output_dir:
                 self._save_artifacts(
                     output_dir=output_dir,
@@ -324,6 +382,7 @@ class ContainerRunner:
                         "scenario_id": scenario_id,
                         "success": None,
                         "error": "Artifacts failed to save (result.json missing)",
+                        **(result_metadata or {}),
                     }
 
             return result
@@ -335,6 +394,7 @@ class ContainerRunner:
                 "success": None,
                 "error": str(exc),
                 "scenario_file": scenario_file,
+                **(result_metadata or {}),
             }
             if output_dir:
                 self._save_artifacts(
@@ -352,6 +412,96 @@ class ContainerRunner:
                     self.launcher.stop(container_id)
                 except Exception:
                     logger.warning("Failed to stop container %s", container_id)
+
+    # ── State carried between chained scenarios ──────────────────────────
+
+    def _agent_home(self) -> str:
+        from gaia2_runner.container_env import detect_profile
+
+        agent_home = detect_profile(self.image).agent_home
+        if agent_home is None:
+            raise RuntimeError(
+                f"Image {self.image!r} does not support sequential runs "
+                "(no agent home to carry between scenarios)"
+            )
+        return agent_home
+
+    def _seed_dirs(self, carry_in: CarriedState | None) -> dict[str, str] | None:
+        """Map container paths to the carried host dirs to copy in at launch."""
+        if carry_in is None:
+            return None
+        seed_dirs: dict[str, str] = {}
+        if carry_in.home_dir is not None:
+            seed_dirs[self._agent_home()] = str(carry_in.home_dir)
+        if carry_in.app_state_dir is not None:
+            seed_dirs[_CONTAINER_CARRIED_STATE_DIR] = str(carry_in.app_state_dir)
+        return seed_dirs or None
+
+    def _capture_carried_state(
+        self,
+        container_id: str,
+        carry_out: CarriedState,
+    ) -> str | None:
+        """Copy the agent home and app state out for the next chained scenario.
+
+        Returns an error message if either could not be captured.
+        """
+        from gaia2_runner.container_env import detect_profile
+
+        try:
+            if carry_out.home_dir is not None:
+                self._copy_dir_from(
+                    container_id,
+                    self._agent_home(),
+                    carry_out.home_dir,
+                    exclude_paths=detect_profile(self.image).agent_home_exclude,
+                )
+            if carry_out.app_state_dir is not None:
+                self._copy_dir_from(
+                    container_id,
+                    _CONTAINER_STATE_DIR,
+                    carry_out.app_state_dir,
+                    exclude=_is_scenario_runtime_file,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Could not capture carried state from %s: %s", container_id[:12], exc
+            )
+            return str(exc)
+        return None
+
+    def _copy_dir_from(
+        self,
+        container_id: str,
+        src_dir: str,
+        dst: Path,
+        *,
+        exclude: Callable[[str], bool] | None = None,
+        exclude_paths: tuple[str, ...] = (),
+    ) -> None:
+        """Copy a container directory's contents to *dst*, which must not exist.
+
+        *exclude* drops matching top-level entries and *exclude_paths* the
+        given paths relative to *src_dir*. *dst* only appears once the copy
+        is complete, so a failed copy never leaves a partial tree for the
+        next scenario to start from.
+        """
+        partial = dst.with_name(dst.name + ".partial")
+        partial.mkdir(parents=True)
+        try:
+            self.launcher.copy_from(
+                container_id, src_dir.rstrip("/") + "/.", str(partial)
+            )
+            if exclude is not None:
+                for child in partial.iterdir():
+                    if exclude(child.name):
+                        child.unlink()
+            for relative in exclude_paths:
+                (partial / relative).unlink(missing_ok=True)
+            partial.rename(dst)
+        except BaseException:
+            shutil.rmtree(partial, ignore_errors=True)
+            raise
 
     # ── Helpers extracted from run_scenario ──────────────────────────────
 

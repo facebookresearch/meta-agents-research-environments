@@ -65,6 +65,9 @@ _gateway_url = ""
 _session_key = ""
 _auth_token = ""
 _latest_chat_delta: dict[str, str] = {}
+# Runs started by chat.send. OpenClaw also starts agent runs of its own, such
+# as the pre-compaction memory flush, whose silent finals must not end a turn.
+_own_run_ids: set[str] = set()
 
 _pending: dict[str, asyncio.Future] = {}
 
@@ -440,7 +443,10 @@ async def send_message(text: str) -> dict:
         exc.detail = res.get("error")  # type: ignore[attr-defined]
         raise exc
 
-    return {"run_id": res.get("payload", {}).get("runId", "")}
+    run_id = res.get("payload", {}).get("runId", "")
+    if run_id:
+        _own_run_ids.add(run_id)
+    return {"run_id": run_id}
 
 
 def is_connected() -> bool:
@@ -513,11 +519,21 @@ def on_backend_response(response: dict) -> None:
 
     # Drop OpenClaw internal responses — heartbeat acks, memory compaction
     # flushes, and empty turns that are not part of the scenario.
-    # NOTE: Do NOT drop empty text ("") — that's a real agent completion
-    # when maxToolRoundtrips is exhausted without producing text output.
+    # NOTE: Do NOT drop empty text ("") from a run we started — that's a real
+    # agent completion when maxToolRoundtrips is exhausted without text output.
     text_preview = _response_text(response).strip()
     if state == "final" and text_preview in ("HEARTBEAT_OK", "NO_REPLY"):
         print(f"[gaia2-adapter] Dropped internal ack '{text_preview}' (runId={run_id})")
+        return
+    # The pre-compaction memory flush is an agent run of OpenClaw's own that
+    # ends silently. Letting it close the turn would end the scenario before
+    # the agent has even seen the task, so only runs started by chat.send may
+    # finish with an empty reply.
+    if state == "final" and not text_preview and run_id not in _own_run_ids:
+        print(
+            "[gaia2-adapter] Dropped silent final from a run the adapter did not "
+            f"start (runId={run_id})"
+        )
         return
 
     entry = _state.buffer_and_broadcast(response)

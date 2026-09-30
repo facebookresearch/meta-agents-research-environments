@@ -45,6 +45,17 @@ class ContainerProfile:
     requires_agent_llm: bool = True
     """Whether this image expects agent-side provider/model configuration."""
 
+    agent_home: str | None = None
+    """Agent home directory carried between chained scenarios in sequential
+    runs. ``None`` means the runtime does not support sequential runs."""
+
+    agent_home_exclude: tuple[str, ...] = ()
+    """Paths under ``agent_home`` left out of the carried state: files the
+    runtime rewrites at every start that hold the API key."""
+
+    context_window_env_key: str | None = None
+    """Env var that overrides the agent's context window, if supported."""
+
 
 @dataclass(frozen=True)
 class ResolvedApiKey:
@@ -71,6 +82,12 @@ _OPENCLAW = ContainerProfile(
     default_provider="anthropic",
     extra_flags={"OPENCLAW_FORCE_RECONFIG": "1"},
     base_url_keys=["BASE_URL", "OPENROUTER_BASE_URL"],
+    agent_home="/home/agent",
+    agent_home_exclude=(
+        ".openclaw/openclaw.json",
+        ".openclaw/agents/main/agent/auth-profiles.json",
+    ),
+    context_window_env_key="OPENCLAW_CONTEXT_WINDOW",
 )
 
 _HERMES = ContainerProfile(

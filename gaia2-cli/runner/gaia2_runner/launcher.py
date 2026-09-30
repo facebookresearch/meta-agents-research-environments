@@ -222,6 +222,7 @@ class ContainerLauncher(ABC):
         extra_volumes: tuple[str, ...] | None = None,
         adapter_port: int | None = None,
         gateway_port: int | None = None,
+        seed_dirs: Mapping[str, str] | None = None,
     ) -> str:
         """Start a container with the given scenario, return container_id.
 
@@ -229,6 +230,9 @@ class ContainerLauncher(ABC):
         env vars are injected so the container uses non-default ports.
         This allows multiple containers to run concurrently with
         ``--network=host``.
+
+        *seed_dirs* maps container paths to host directories whose contents
+        are copied into the container before its entrypoint starts.
         """
 
     @abstractmethod
@@ -430,6 +434,7 @@ class LocalLauncher(ContainerLauncher):
         extra_volumes: tuple[str, ...] | None = None,
         adapter_port: int | None = None,
         gateway_port: int | None = None,
+        seed_dirs: Mapping[str, str] | None = None,
     ) -> str:
         container_name = self._container_name(scenario_json_path)
         publish_adapter_port = self._should_publish_adapter_port(
@@ -437,7 +442,10 @@ class LocalLauncher(ContainerLauncher):
             adapter_port=adapter_port,
         )
 
-        cmd = [*self._rt, "run", "-d", f"--name={container_name}"]
+        # Seeded containers are created stopped so the seed can land before
+        # the entrypoint reads it.
+        verb = ["create"] if seed_dirs else ["run", "-d"]
+        cmd = [*self._rt, *verb, f"--name={container_name}"]
         if publish_adapter_port:
             cmd.extend(["-p", f"127.0.0.1:{adapter_port}:{adapter_port}"])
         else:
@@ -551,6 +559,8 @@ class LocalLauncher(ContainerLauncher):
 
         result = self._run(cmd)
         container_id = result.stdout.strip()
+        if seed_dirs:
+            self._seed_and_start(container_id, seed_dirs)
         logger.info(
             "Started container %s (%s) from %s",
             container_name,
@@ -558,6 +568,23 @@ class LocalLauncher(ContainerLauncher):
             image,
         )
         return container_id
+
+    def _seed_and_start(self, container_id: str, seed_dirs: Mapping[str, str]) -> None:
+        """Copy host directories into a created container, then start it."""
+        try:
+            for container_path, host_dir in seed_dirs.items():
+                self._run(
+                    [
+                        *self._rt,
+                        "cp",
+                        f"{host_dir}/.",
+                        f"{container_id}:{container_path}",
+                    ]
+                )
+            self._run([*self._rt, "start", container_id])
+        except subprocess.CalledProcessError:
+            self.stop(container_id)
+            raise
 
     def exec(
         self,
