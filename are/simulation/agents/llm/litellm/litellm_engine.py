@@ -122,7 +122,6 @@ Action:
             res = response.choices[0].message.content
             assert res is not None
 
-            res = res.replace("False", "false").replace("True", "true")
             for stop_token in stop_sequences:
                 res = res.split(stop_token)[0]
 
