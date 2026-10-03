@@ -69,7 +69,7 @@ Gaia2 includes 5 splits of 160 tasks each, covering the following agent abilitie
      - Tasks that require potentially many read actions, i.e. similar to GAIA / Deep Research, but with a simulated environment instead of the real Web
      - Which city do most of my friends live in? I consider any contact who I have at least one 1-on-1 conversation with on WhatsApp a friend. In case of a tie, return the first city alphabetically.
      - The agent only needs to browse the relevant apps, without needing to modify any state.
-   * - Ambiguity
+   * - Adaptability
      - Tasks requiring adaptation to changes in the environment to be completed successfully
      - I have to meet my friend Kaida Schönberger to view a property with her [...] If she replies to suggest another property or time, please replace it with the listing she actually wants and reschedule at the time that works for her.
      - Agents will need to adapt what was done according to the user's friend's reply.
@@ -77,7 +77,7 @@ Gaia2 includes 5 splits of 160 tasks each, covering the following agent abilitie
      - Tasks (repeated or not) to be completed in due time
      - If any new properties are listed in the next 50 minutes, please save them so I can review them later. After saving each property, send me an email with the subject as the property name and the property details as the email content.
      - Agent needs to check time to only list properties within the next 50mins (not after), and then contact the user.
-   * - Adaptability
+   * - Ambiguity
      - Ambiguous tasks requiring user feedback or confirmation, whether because they are high-stakes or not possible under the agent's affordances
      - Schedule a 1h Yoga event each day at 6:00 PM from October 16, 2024 to October 21, 2024. Ask me in case there are conflicts
      - While this task seems simple at first glance, current models struggle to see contradictions/multiple valid answers and tend to blindly execute the first seemingly valid interpretation of the task
