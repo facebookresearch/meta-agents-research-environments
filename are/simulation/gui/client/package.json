@@ -45,7 +45,7 @@
     "graphql-ws": "^6.0.5",
     "html-to-image": "^1.11.13",
     "motion": "^12.23.0",
-    "nanoid": "^5.1.5",
+    "nanoid": "^5.1.16",
     "print-js": "^1.6.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
