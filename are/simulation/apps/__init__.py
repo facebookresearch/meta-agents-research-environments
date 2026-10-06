@@ -13,6 +13,12 @@ from .calendar import Calendar, CalendarApp
 from .city import CityApp
 from .contacts import Contacts, ContactsApp, InternalContacts
 from .email_client import EmailClientV2, Mail
+from .flight_customer_service import (
+    FlightClient,
+    FlightClientApp,
+    FlightCustomerService,
+    FlightCustomerServiceApp,
+)
 from .messaging_v2 import MessagingAppV2
 from .reminder import ReminderApp
 from .sandbox_file_system import Files, SandboxLocalFileSystem
@@ -32,6 +38,10 @@ __all__ = [
     "ContactsApp",
     "EmailClientV2",
     "Files",
+    "FlightClient",
+    "FlightClientApp",
+    "FlightCustomerService",
+    "FlightCustomerServiceApp",
     "InternalContacts",
     "Mail",
     "MessagingAppV2",
@@ -56,6 +66,10 @@ ALL_APPS = [
     ContactsApp,
     EmailClientV2,
     Files,
+    FlightClient,
+    FlightClientApp,
+    FlightCustomerService,
+    FlightCustomerServiceApp,
     InternalContacts,
     Mail,
     MessagingAppV2,
