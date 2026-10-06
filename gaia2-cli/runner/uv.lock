@@ -458,7 +458,7 @@ judge = [
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
     { name = "gaia2-core", editable = "../core" },
-    { name = "litellm", marker = "extra == 'judge'", specifier = ">=1.0" },
+    { name = "litellm", marker = "extra == 'judge'", specifier = ">=1.84.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
 ]
 provides-extras = ["dev", "judge"]
@@ -736,7 +736,7 @@ wheels = [
 
 [[package]]
 name = "litellm"
-version = "1.82.1"
+version = "1.84.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -752,9 +752,9 @@ dependencies = [
     { name = "tiktoken" },
     { name = "tokenizers" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/34/bd/6251e9a965ae2d7bc3342ae6c1a2d25dd265d354c502e63225451b135016/litellm-1.82.1.tar.gz", hash = "sha256:bc8427cdccc99e191e08e36fcd631c93b27328d1af789839eb3ac01a7d281890", size = 17197496, upload-time = "2026-03-10T09:10:04.438Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dd/e9/8941b7e72a187000561d932c0f2f2ed2b0fd080dfc33ba6e05961d45ca7d/litellm-1.84.0.tar.gz", hash = "sha256:b8ad0cbea11a5941b18d5af973017a340abd3d3ab41cb86e5401b970626d71a6", size = 15103206, upload-time = "2026-05-14T05:45:53.017Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/57/77/0c6eca2cb049793ddf8ce9cdcd5123a35666c4962514788c4fc90edf1d3b/litellm-1.82.1-py3-none-any.whl", hash = "sha256:a9ec3fe42eccb1611883caaf8b1bf33c9f4e12163f94c7d1004095b14c379eb2", size = 15341896, upload-time = "2026-03-10T09:10:00.702Z" },
+    { url = "https://files.pythonhosted.org/packages/01/a6/77fa1bbf5e42eb596b06318b3f7e6af5d0f44028046d1d598c6a595d028f/litellm-1.84.0-py3-none-any.whl", hash = "sha256:2a58d6041e6aa27d1a28dc8d8828ab500fef1a00ef74ca65e60899035010c2f2", size = 16735062, upload-time = "2026-05-14T05:45:49.927Z" },
 ]
 
 [[package]]
