@@ -64,7 +64,7 @@
     "@types/react-dom": "^19.1.6",
     "@types/react-relay": "^18.2.1",
     "@types/react-resizable": "^3.0.8",
-    "@vitejs/plugin-react": "^5.0.2",
+    "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.30.1",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-react-hooks": "^5.2.0",
@@ -75,8 +75,8 @@
     "relay-compiler": "^20.0.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.36.0",
-    "vite": "^7.0.2",
-    "vitest": "^3.2.4"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
   },
   "relay": {
     "src": "./src",
