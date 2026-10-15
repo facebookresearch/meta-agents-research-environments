@@ -201,8 +201,12 @@ async def _main() -> None:
     port = int(os.environ.get("GAIA2_ADAPTER_PORT", "8090"))
 
     # Start HTTP server first so the runner can connect.
-    server = await asyncio.start_server(_handle_client, "0.0.0.0", port)
-    logger.info("Oracle adapter listening on 0.0.0.0:%d", port)
+    # Default 0.0.0.0 preserves podman port-publishing; apptainer host networking
+    # sets GAIA2_ADAPTER_BIND_HOST=127.0.0.1 so the adapter cannot shadow a sibling
+    # scenario's 127.0.0.1 gateway on the same host port.
+    bind_host = os.environ.get("GAIA2_ADAPTER_BIND_HOST", "0.0.0.0")
+    server = await asyncio.start_server(_handle_client, bind_host, port)
+    logger.info("Oracle adapter listening on %s:%d", bind_host, port)
 
     # Start replay in a background thread (it blocks on subprocess calls).
     replay_thread = threading.Thread(

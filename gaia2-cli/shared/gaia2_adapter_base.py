@@ -512,8 +512,13 @@ async def run_adapter(
     print(f"[gaia2-adapter] Connecting to {backend_name} backend...")
     await backend_connect()
 
-    server = await asyncio.start_server(client_handler, "0.0.0.0", state.port)
-    print(f"[gaia2-adapter] HTTP server listening on 0.0.0.0:{state.port}")
+    # Default 0.0.0.0 preserves podman port-publishing (``-p 127.0.0.1:P:P`` cannot
+    # reach a loopback-only bind inside the container). Under apptainer host
+    # networking the launcher sets GAIA2_ADAPTER_BIND_HOST=127.0.0.1 so a 0.0.0.0
+    # adapter cannot shadow a sibling scenario's 127.0.0.1 gateway on the same port.
+    bind_host = os.environ.get("GAIA2_ADAPTER_BIND_HOST", "0.0.0.0")
+    server = await asyncio.start_server(client_handler, bind_host, state.port)
+    print(f"[gaia2-adapter] HTTP server listening on {bind_host}:{state.port}")
     print(
         "[gaia2-adapter] Endpoints:  POST /notify, POST /execute_action, "
         "GET /events (SSE), GET /messages, GET /health, GET /status"
