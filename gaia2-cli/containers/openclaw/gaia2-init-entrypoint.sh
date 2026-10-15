@@ -38,6 +38,8 @@ STATE_DIR=/var/gaia2/state
 CARRIED_STATE_DIR=/var/gaia2/carried_state
 FAKETIME_FILE=/tmp/faketime.rc
 EVENTD_LOG=/tmp/gaia2-eventd.log
+# eventd.log and judgments.jsonl name every oracle event; keep them gaia2-only.
+EVENTD_LOG_DIR=/var/gaia2/logs
 ADAPTER_LOG=/tmp/gaia2-adapter.log
 ENTRYPOINT_LOG=/tmp/entrypoint.log
 TLS_PROXY_PORT_FILE=/tmp/tls-proxy-port
@@ -162,7 +164,10 @@ start_eventd() {
         return
     fi
 
-    touch "$EVENTD_LOG" && chown gaia2:gaia2 "$EVENTD_LOG"
+    # eventd's console log lists the oracle events too: gaia2 0600, created
+    # before eventd appends to it so its umask cannot widen the mode.
+    touch "$EVENTD_LOG" && chown gaia2:gaia2 "$EVENTD_LOG" && chmod 600 "$EVENTD_LOG"
+    install -d -o gaia2 -g gaia2 -m 0700 "$EVENTD_LOG_DIR"
     # faketime.rc: gaia2-owned, world-readable.
     # Daemon (gaia2) writes it between turns. CLI tools (gaia2 via gaia2-exec)
     # and agent bash wrapper read it via libfaketime. Agent cannot modify it.
@@ -180,6 +185,7 @@ start_eventd() {
         /usr/local/bin/gaia2-eventd \
             --scenario '$SCENARIO_PATH' \
             --state-dir '$STATE_DIR' \
+            --log-dir '$EVENTD_LOG_DIR' \
             --notify-url 'http://127.0.0.1:$ADAPTER_PORT' \
             --poll-interval 0.5 \
             ${FAKETIME:+--faketime-path $FAKETIME_FILE} \
@@ -209,6 +215,7 @@ start_adapter() {
     su -s /usr/bin/bash gaia2 -c "
         export PATH=/usr/local/bin:/usr/bin:/bin
         export GAIA2_STATE_DIR='$STATE_DIR'
+        export GAIA2_STATUS_DIR='$EVENTD_LOG_DIR'
         export GAIA2_ADAPTER_PORT='$ADAPTER_PORT'
         export OPENCLAW_GATEWAY_TOKEN='${OPENCLAW_GATEWAY_TOKEN:-gaia2-notif}'
         export OPENCLAW_HOOKS_TOKEN='${OPENCLAW_HOOKS_TOKEN:-gaia2-hooks}'

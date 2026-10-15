@@ -121,9 +121,12 @@ class Gaia2EventDaemon:
         notification_mode: str = "message",
         time_speed: float | None = None,
         idle_timeout: float = 300.0,
+        log_dir: str | None = None,
     ) -> None:
         self.scenario_path = Path(scenario_path)
         self.state_dir = Path(state_dir)
+        # Where judgments.jsonl goes (oracle events per judged turn).
+        self.log_dir = Path(log_dir) if log_dir else self.state_dir
         self.events_jsonl = (
             Path(events_jsonl) if events_jsonl else self.state_dir / "events.jsonl"
         )
@@ -351,7 +354,7 @@ class Gaia2EventDaemon:
             start_time=loader.start_time,
             engine=engine,
             app_name_to_class=loader.app_name_to_class,
-            state_dir=str(self.state_dir),
+            state_dir=str(self.log_dir),
             prompt_overrides=prompt_overrides,
         )
         logger.info(
@@ -690,10 +693,14 @@ class Gaia2EventDaemon:
     # ------------------------------------------------------------------
 
     def _write_status(self, status: str) -> None:
-        """Atomically write daemon_status.json to state_dir.
+        """Atomically write daemon_status.json to log_dir.
 
         The adapter serves this via GET /status so the runner can poll
-        scenario progress without independently counting turns.
+        scenario progress without independently counting turns.  It carries
+        the final judgment (the grade), so it is written to log_dir -- the
+        gaia2-only dir the agent cannot write under the FEH apptainer
+        wrapper -- not the group-writable state dir.  log_dir defaults to
+        state_dir, so non-FEH callers are unchanged.
         """
         nb_turns = self._processor.nb_turns if self._processor else 1
         data = {
@@ -709,7 +716,7 @@ class Gaia2EventDaemon:
                 "success": self._final_judgment.success,
                 "failure_reason": self._final_judgment.failure_reason,
             }
-        status_path = self.state_dir / "daemon_status.json"
+        status_path = self.log_dir / "daemon_status.json"
         tmp_path = status_path.with_suffix(".json.tmp")
         try:
             tmp_path.write_text(json.dumps(data) + "\n")
@@ -1262,6 +1269,13 @@ class Gaia2EventDaemon:
     help="Seconds of no agent events before the daemon shuts down with status=error. "
     "Raise this when the agent legitimately needs long stretches between tool calls.",
 )
+@click.option(
+    "--log-dir",
+    default=None,
+    type=click.Path(exists=True, file_okay=False),
+    help="Directory for eventd.log and judgments.jsonl (default: --state-dir). "
+    "Both name oracle events, so point it at a directory the agent cannot read.",
+)
 def main(
     scenario: str,
     state_dir: str,
@@ -1280,6 +1294,7 @@ def main(
     notification_mode: str,
     time_speed: float | None,
     idle_timeout: float,
+    log_dir: str | None,
 ) -> None:
     """Run the Gaia2 event daemon.
 
@@ -1292,8 +1307,8 @@ def main(
         level=logging.INFO,
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
-    # File logging to {state_dir}/eventd.log
-    log_path = str(Path(state_dir) / "eventd.log")
+    # File logging to {log_dir or state_dir}/eventd.log
+    log_path = str(Path(log_dir or state_dir) / "eventd.log")
 
     # Parse --judge-extra-body JSON (optional). Fail loudly on malformed input —
     # silent None would defeat the whole purpose of this arg (Qwen3 thinking
@@ -1331,6 +1346,7 @@ def main(
         notification_mode=notification_mode,
         time_speed=time_speed,
         idle_timeout=idle_timeout,
+        log_dir=log_dir,
     )
 
     logger.info("Setting up daemon... (log: %s)", log_path)

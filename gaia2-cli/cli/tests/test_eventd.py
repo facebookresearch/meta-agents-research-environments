@@ -664,3 +664,87 @@ class TestFaketimeAdvancement:
 
         # Should not raise
         d._advance_time()
+
+
+class TestLogDir:
+    """eventd.log and judgments.jsonl name oracle events: --log-dir keeps them out of state."""
+
+    def test_judgments_default_to_state_dir(self, daemon, monkeypatch):
+        import gaia2_cli.judge as judge_module
+
+        monkeypatch.setattr(judge_module, "Judge", lambda **kw: kw)
+        loader = SimpleNamespace(
+            extract_oracle_data=lambda **_: ([[{"event": 1}]], [{}], ["task"], None),
+            start_time=0.0,
+            app_name_to_class={},
+        )
+        processor = SimpleNamespace(event_id_to_turn_idx={}, nb_turns=1)
+        judge_kwargs = daemon._create_judge(loader, processor)
+        assert judge_kwargs["state_dir"] == str(daemon.state_dir)
+
+    def test_judgments_go_to_log_dir(self, tmp_path, monkeypatch):
+        import gaia2_cli.judge as judge_module
+
+        state_dir = tmp_path / "state"
+        state_dir.mkdir()
+        log_dir = tmp_path / "logs"
+        scenario = tmp_path / "scenario.json"
+        scenario.write_text("{}")
+        d = Gaia2EventDaemon(
+            scenario_path=str(scenario), state_dir=str(state_dir), log_dir=str(log_dir)
+        )
+        monkeypatch.setattr(judge_module, "Judge", lambda **kw: kw)
+        loader = SimpleNamespace(
+            extract_oracle_data=lambda **_: ([[{"event": 1}]], [{}], ["task"], None),
+            start_time=0.0,
+            app_name_to_class={},
+        )
+        processor = SimpleNamespace(event_id_to_turn_idx={}, nb_turns=1)
+        judge_kwargs = d._create_judge(loader, processor)
+        assert judge_kwargs["state_dir"] == str(log_dir)
+        # events.jsonl and the other agent-facing files stay in the state dir.
+        assert d.events_jsonl == state_dir / "events.jsonl"
+        assert d.notifications_path == state_dir / "notifications.jsonl"
+
+    @pytest.mark.parametrize("use_log_dir", [False, True])
+    def test_cli_puts_eventd_log_in_log_dir(self, tmp_path, use_log_dir):
+        from click.testing import CliRunner
+
+        from gaia2_cli.daemon import eventd
+
+        state_dir = tmp_path / "state"
+        state_dir.mkdir()
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        scenario = tmp_path / "scenario.json"
+        scenario.write_text("{}")
+        args = ["--scenario", str(scenario), "--state-dir", str(state_dir)]
+        if use_log_dir:
+            args += ["--log-dir", str(log_dir)]
+
+        with patch.object(eventd, "Gaia2EventDaemon") as daemon_cls:
+            result = CliRunner().invoke(eventd.main, args)
+
+        assert result.exit_code == 0, result.output
+        kwargs = daemon_cls.call_args.kwargs
+        want = log_dir if use_log_dir else state_dir
+        assert kwargs["log_path"] == str(want / "eventd.log")
+        assert kwargs["log_dir"] == (str(log_dir) if use_log_dir else None)
+        assert kwargs["state_dir"] == str(state_dir)
+
+    def test_status_file_goes_to_log_dir(self, tmp_path):
+        """daemon_status.json carries the grade: it lands in the gaia2-only log dir."""
+        state_dir = tmp_path / "state"
+        state_dir.mkdir()
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        scenario = tmp_path / "scenario.json"
+        scenario.write_text("{}")
+        d = Gaia2EventDaemon(
+            scenario_path=str(scenario),
+            state_dir=str(state_dir),
+            log_dir=str(log_dir),
+        )
+        d._write_status("complete")
+        assert (log_dir / "daemon_status.json").is_file()
+        assert not (state_dir / "daemon_status.json").exists()

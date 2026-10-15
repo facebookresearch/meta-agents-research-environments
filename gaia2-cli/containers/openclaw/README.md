@@ -181,7 +181,9 @@ Useful logs inside the container:
 
 - `/tmp/entrypoint.log`
 - `/tmp/gaia2-adapter.log`
-- `/tmp/gaia2-eventd.log`
+- `/tmp/gaia2-eventd.log` (gaia2 0600)
+- `/var/gaia2/logs/` (gaia2 0700: `eventd.log`, `judgments.jsonl`; both name
+  oracle events, so the agent user cannot read them)
 - `/tmp/openclaw/*.log`
 
 Useful commands:

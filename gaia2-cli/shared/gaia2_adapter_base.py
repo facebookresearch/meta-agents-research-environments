@@ -47,6 +47,10 @@ from urllib.parse import parse_qs, urlparse
 # ── Configuration ───────────────────────────────────────────────────────
 STATUS_FILE = "daemon_status.json"
 STATE_DIR = os.environ.get("GAIA2_STATE_DIR", "/var/gaia2/state")
+# daemon_status.json carries the judgment (the grade). Under the FEH apptainer
+# wrapper the state dir is group-writable by the agent, so the verdict copy is
+# read from a gaia2-only dir; defaults to STATE_DIR for every other caller.
+STATUS_DIR = os.environ.get("GAIA2_STATUS_DIR", STATE_DIR)
 EVENTS_JSONL = os.environ.get(
     "GAIA2_EVENTS_JSONL",
     os.path.join(STATE_DIR, "events.jsonl"),
@@ -229,8 +233,8 @@ async def handle_health(
 
 
 async def handle_status(writer: asyncio.StreamWriter) -> None:
-    """Handle GET /status — read daemon_status.json from state dir."""
-    status_path = os.path.join(STATE_DIR, STATUS_FILE)
+    """Handle GET /status — read daemon_status.json from the status dir."""
+    status_path = os.path.join(STATUS_DIR, STATUS_FILE)
     try:
         with open(status_path) as f:
             status = json.load(f)

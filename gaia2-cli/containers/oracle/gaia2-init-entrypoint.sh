@@ -81,7 +81,9 @@ if [ -f "$CUSTOM_SCENARIO" ]; then
     # Start gaia2-eventd as a separate background process (same pattern as OC).
     # The daemon watches events.jsonl, detects turn boundaries, fires ENV
     # reactions, and runs the in-container judge.
-    touch /tmp/gaia2-eventd.log && chown gaia2:gaia2 /tmp/gaia2-eventd.log
+    # eventd's console log lists the oracle events: gaia2 0600, created
+    # before eventd appends to it so its umask cannot widen the mode.
+    touch /tmp/gaia2-eventd.log && chown gaia2:gaia2 /tmp/gaia2-eventd.log && chmod 600 /tmp/gaia2-eventd.log
     echo "[gaia2-init] Starting gaia2-eventd as gaia2 user..." >&2
     su -s /usr/bin/bash gaia2 -c "
         export PATH=/usr/local/bin:/usr/bin:/bin

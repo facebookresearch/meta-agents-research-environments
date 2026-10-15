@@ -94,7 +94,9 @@ fi
 # The daemon watches events.jsonl for turn boundaries, runs the judge,
 # fires ENV reactions via CLI, and sends follow-up messages via the adapter.
 if [ "${GAIA2_DAEMON_DISABLE:-0}" != "1" ] && [ -f "$CUSTOM_SCENARIO" ]; then
-    touch /tmp/gaia2-eventd.log && chown gaia2:gaia2 /tmp/gaia2-eventd.log
+    # eventd's console log lists the oracle events: gaia2 0600, created
+    # before eventd appends to it so its umask cannot widen the mode.
+    touch /tmp/gaia2-eventd.log && chown gaia2:gaia2 /tmp/gaia2-eventd.log && chmod 600 /tmp/gaia2-eventd.log
     # faketime.rc: gaia2-owned, world-readable.
     # Daemon (gaia2) writes it between turns. CLI tools (gaia2 via gaia2-exec)
     # and agent bash wrapper read it via libfaketime. Agent cannot modify it.

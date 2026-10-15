@@ -42,7 +42,19 @@ DEFAULT_HEALTH_TIMEOUT = 120
 
 # Container path where the LLM trace is written (read back by _extract_trace_file)
 _CONTAINER_TRACE_PATH = "/tmp/trace.jsonl"
-_CONTAINER_DAEMON_STATUS_PATH = "/var/gaia2/state/daemon_status.json"
+# The verdict copy of daemon_status.json lives in the gaia2-only log dir (out of
+# the agent's reach under the FEH apptainer wrapper); older images wrote it to
+# the group-writable state dir.
+_CONTAINER_DAEMON_STATUS_PATH = "/var/gaia2/logs/daemon_status.json"
+_LEGACY_CONTAINER_DAEMON_STATUS_PATH = "/var/gaia2/state/daemon_status.json"
+# The gaia2-only log dir itself. A new image always has it, so a merely-missing
+# verdict copy there must not fall back to the agent-writable state copy; only
+# genuinely old images (no log dir) use the legacy path.
+_CONTAINER_LOGS_DIR = "/var/gaia2/logs"
+# gaia2-eventd writes judgments (oracle events per judged turn) into a
+# gaia2-only directory, out of the agent's reach; older images used the state dir.
+_CONTAINER_JUDGMENTS_PATH = "/var/gaia2/logs/judgments.jsonl"
+_LEGACY_CONTAINER_JUDGMENTS_PATH = "/var/gaia2/state/judgments.jsonl"
 _TERMINAL_DAEMON_STATUSES = frozenset({"complete", "stopped", "error"})
 _POLL_FAILURE_SHORTCIRCUIT_THRESHOLD = 5
 
@@ -814,7 +826,13 @@ class ContainerRunner:
         self,
         container_id: str,
     ) -> dict[str, Any] | None:
-        """Copy daemon_status.json out of the container and parse it."""
+        """Copy daemon_status.json out of the container and parse it.
+
+        Reads the gaia2-only log-dir copy (the verdict the agent cannot forge
+        under the FEH apptainer wrapper). Only genuinely old images without a
+        log dir fall back to the agent-writable state copy; a merely-missing
+        log-dir copy on a new image must not let the state copy decide the grade.
+        """
         with tempfile.NamedTemporaryFile(
             mode="r",
             suffix=".json",
@@ -823,17 +841,24 @@ class ContainerRunner:
         ) as tmp:
             tmp_path = Path(tmp.name)
         try:
-            self.launcher.copy_from(
-                container_id,
+            for src in (
                 _CONTAINER_DAEMON_STATUS_PATH,
-                str(tmp_path),
-            )
-            return self._read_daemon_status_file(tmp_path)
-        except Exception as exc:
+                _LEGACY_CONTAINER_DAEMON_STATUS_PATH,
+            ):
+                if (
+                    src == _LEGACY_CONTAINER_DAEMON_STATUS_PATH
+                    and self._container_has_logs_dir(container_id)
+                ):
+                    break
+                try:
+                    self.launcher.copy_from(container_id, src, str(tmp_path))
+                except Exception:
+                    continue
+                data = self._read_daemon_status_file(tmp_path)
+                if data is not None:
+                    return data
             logger.debug(
-                "Could not copy daemon status from %s: %s",
-                container_id[:12],
-                exc,
+                "Could not copy daemon status from %s", container_id[:12]
             )
             return None
         finally:
@@ -841,6 +866,22 @@ class ContainerRunner:
                 tmp_path.unlink()
             except OSError:
                 pass
+
+    def _container_has_logs_dir(self, container_id: str) -> bool:
+        """Whether the gaia2-only log dir exists in the container.
+
+        Probed with ``copy_from`` (which, unlike ``exec``, works on a
+        stopped/exited container — the gateway can exit on its own before the
+        verdict is read). Returns ``False`` when the dir cannot be copied,
+        which gates the legacy state-dir verdict fallback to genuinely old
+        images that never had the log dir.
+        """
+        with tempfile.TemporaryDirectory(prefix="gaia2-logs-probe-") as probe_dir:
+            try:
+                self.launcher.copy_from(container_id, _CONTAINER_LOGS_DIR, probe_dir)
+            except Exception:
+                return False
+        return True
 
     def _read_extracted_daemon_status(
         self,
@@ -1063,18 +1104,22 @@ class ContainerRunner:
         Copies:
         - ``/tmp/gaia2-eventd.log`` → ``eventd.log``
         - ``/tmp/entrypoint.log`` → ``entrypoint.log``
-        - ``/var/gaia2/state/judgments.jsonl`` → ``daemon_judgments.jsonl``
+        - ``/var/gaia2/logs/judgments.jsonl`` → ``daemon_judgments.jsonl``
+          (``/var/gaia2/state/judgments.jsonl`` on images that predate the
+          gaia2-only log dir)
         - ``/var/gaia2/state/user_details.json`` → ``user_details.json``
-        - ``/var/gaia2/state/daemon_status.json`` → ``daemon_status.json``
+        - ``/var/gaia2/logs/daemon_status.json`` → ``daemon_status.json``
+          (``/var/gaia2/state/daemon_status.json`` on images that predate the
+          gaia2-only log dir)
         - ``/var/gaia2/state/notifications.jsonl`` → ``notifications.jsonl``
         - ``/tmp/faketime.rc`` → ``faketime.rc``
         """
         for src, dst in [
             ("/tmp/gaia2-eventd.log", "eventd.log"),
             ("/tmp/entrypoint.log", "entrypoint.log"),
-            ("/var/gaia2/state/judgments.jsonl", "daemon_judgments.jsonl"),
+            (_CONTAINER_JUDGMENTS_PATH, "daemon_judgments.jsonl"),
             ("/var/gaia2/state/user_details.json", "user_details.json"),
-            ("/var/gaia2/state/daemon_status.json", "daemon_status.json"),
+            (_CONTAINER_DAEMON_STATUS_PATH, "daemon_status.json"),
             ("/var/gaia2/state/notifications.jsonl", "notifications.jsonl"),
             ("/tmp/faketime.rc", "faketime.rc"),
         ]:
@@ -1082,3 +1127,32 @@ class ContainerRunner:
                 self.launcher.copy_from(container_id, src, str(artifact_dir / dst))
             except Exception:
                 logger.debug("Could not extract %s from container", src)
+        if not (artifact_dir / "daemon_judgments.jsonl").exists():
+            try:
+                self.launcher.copy_from(
+                    container_id,
+                    _LEGACY_CONTAINER_JUDGMENTS_PATH,
+                    str(artifact_dir / "daemon_judgments.jsonl"),
+                )
+            except Exception:
+                logger.debug(
+                    "Could not extract %s from container",
+                    _LEGACY_CONTAINER_JUDGMENTS_PATH,
+                )
+        # The verdict copy only falls back to the agent-writable state dir on
+        # genuinely old images (no log dir); a missing log-dir copy on a new
+        # image must not let the state copy decide the grade.
+        if not (artifact_dir / "daemon_status.json").exists() and not (
+            self._container_has_logs_dir(container_id)
+        ):
+            try:
+                self.launcher.copy_from(
+                    container_id,
+                    _LEGACY_CONTAINER_DAEMON_STATUS_PATH,
+                    str(artifact_dir / "daemon_status.json"),
+                )
+            except Exception:
+                logger.debug(
+                    "Could not extract %s from container",
+                    _LEGACY_CONTAINER_DAEMON_STATUS_PATH,
+                )
