@@ -335,3 +335,40 @@ def test_local_launcher_removes_the_container_when_seeding_fails(
 
     assert ["podman", "rm", "-f", "container-123"] in calls
     assert not any(args[1] == "start" for args in calls)
+
+
+def test_local_launcher_stages_the_judge_context_read_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    scenario_path = tmp_path / "scenario_1.json"
+    scenario_path.write_text("{}")
+    launcher = LocalLauncher(runtime="podman")
+    captured: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="container-123\n", stderr="")
+
+    monkeypatch.delenv("GAIA2_PROXY_RELAY_URL", raising=False)
+    monkeypatch.delenv("GAIA2_CA_BUNDLE", raising=False)
+    monkeypatch.setattr(launcher, "_run", fake_run)
+
+    # Without a judge context the command is exactly what it always was.
+    launcher.launch("localhost/gaia2-oc:latest", str(scenario_path))
+    without = captured[-1]
+    assert not any("judge_context" in arg for arg in without)
+
+    # With one, it is mounted read-only under /var/gaia2 (closed to the agent)
+    # for the init entrypoint to install as the daemon's private copy.
+    judge_context = tmp_path / "scenario_1.judge_context.json"
+    judge_context.write_text('{"version": 1, "turns": {}}')
+    launcher.launch("localhost/gaia2-oc:latest", str(scenario_path))
+    with_context = captured[-1]
+    mount = f"{judge_context}:/var/gaia2/judge_context.staged.json:ro"
+    idx = with_context.index(mount)
+    assert with_context[idx - 1] == "-v"
+    # Nothing else changes (container names carry a random suffix).
+    rest = with_context[: idx - 1] + with_context[idx + 1 :]
+    assert [a for a in rest if not a.startswith("--name=")] == [
+        a for a in without if not a.startswith("--name=")
+    ]

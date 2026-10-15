@@ -14,6 +14,12 @@
  * as the gaia2 user with GAIA2_STATE_DIR set to /var/gaia2/state.
  *
  * Only whitelisted tool names are allowed to prevent arbitrary command execution.
+ *
+ * The caller's GAIA2_* and PYTHON* variables are dropped before the exec (bar
+ * a few that only shape output): the tool runs as gaia2, so GAIA2_FS_ROOT
+ * would let the agent move the cloud-drive sandbox onto /var/gaia2 (scenario,
+ * judge context) and PYTHONPATH or a user site under the agent's HOME would
+ * run the agent's code as gaia2.
  */
 
 #define _GNU_SOURCE
@@ -22,11 +28,34 @@
 #include <string.h>
 #include <unistd.h>
 
+extern char **environ;
+
 static const char *ALLOWED_TOOLS[] = {
     "calendar", "contacts", "emails", "messages", "chats",
     "rent-a-flat", "city", "cabs", "shopping", "cloud-drive",
     NULL
 };
+
+/* Caller variables kept despite their prefix: they only shape output. */
+static const char *KEPT_VARS[] = {
+    "PYTHONUNBUFFERED=", "PYTHONIOENCODING=", "PYTHONUTF8=",
+    NULL
+};
+
+/* Remove the caller's GAIA2_* and PYTHON* variables from the environment. */
+static void drop_caller_overrides(void) {
+    char **dst = environ;
+    for (char **src = environ; *src; src++) {
+        int drop = strncmp(*src, "GAIA2_", 6) == 0 || strncmp(*src, "PYTHON", 6) == 0;
+        for (const char **k = KEPT_VARS; drop && *k; k++) {
+            if (strncmp(*src, *k, strlen(*k)) == 0)
+                drop = 0;
+        }
+        if (!drop)
+            *dst++ = *src;
+    }
+    *dst = NULL;
+}
 
 int main(int argc, char *argv[]) {
     /* Get basename of argv[0] (the symlink name) */
@@ -56,8 +85,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* Set state directory */
+    /* Set state directory; nothing else from the caller steers the tool */
+    drop_caller_overrides();
     setenv("GAIA2_STATE_DIR", "/var/gaia2/state", 1);
+    setenv("PYTHONNOUSERSITE", "1", 1);
 
     /* Re-inject libfaketime only when faketime is configured (LD_PRELOAD is
      * stripped by kernel for setuid binaries, so we must re-set it).

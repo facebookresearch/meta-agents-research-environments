@@ -152,6 +152,8 @@ gaia2-cli/
   format, and CLI details
 - [runner/README.md#sequential-runs](runner/README.md#sequential-runs) for
   sequential runs, which chain the scenarios of each universe (OpenClaw)
+- [runner/README.md#judge-only-task-text](runner/README.md#judge-only-task-text)
+  for grading audio-prompt scenarios against the original prompt text
 - [runner/TRACE_FORMAT.md](runner/TRACE_FORMAT.md) for the raw trace contract
 - [containers/openclaw/README.md](containers/openclaw/README.md) for OpenClaw
   internals and debugging

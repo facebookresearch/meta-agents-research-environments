@@ -27,6 +27,7 @@ CONTAINER="gaia2-oc-sandbox-test"
 BUILD_LOG="/tmp/gaia2-oc-sandbox-build.log"
 TEST_DIR="$(mktemp -d /tmp/gaia2-oc-sandbox.XXXXXX)"
 SCENARIO="$TEST_DIR/scenario.json"
+JUDGE_CONTEXT="$TEST_DIR/scenario.judge_context.json"
 PASS=0
 FAIL=0
 
@@ -174,6 +175,11 @@ cat > "$SCENARIO" <<'EOF'
 }
 EOF
 
+# Judge-only task text, staged the way the runner's launcher mounts it.
+printf '%s\n' '{"version": 1, "turns": {"Event-USER-sandbox": {"text": "sandbox judge-only text"}}}' \
+    > "$JUDGE_CONTEXT"
+chmod 600 "$JUDGE_CONTEXT"
+
 bold "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 bold " Gaia2-OC Runtime Sandbox Smoke Test"
 bold "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -196,6 +202,7 @@ bold "[setup] Starting container..."
 cleanup_container
 podman run --network=host -d --name "$CONTAINER" \
     -v "$SCENARIO:/var/gaia2/custom_scenario.json:ro,z" \
+    -v "$JUDGE_CONTEXT:/var/gaia2/judge_context.staged.json:ro,z" \
     -e OPENCLAW_FORCE_RECONFIG=1 \
     -e PROVIDER=openai \
     -e MODEL=gpt-4o \
@@ -272,6 +279,13 @@ assert_fail agent "events.jsonl is not readable" \
 assert_contains root "root can still verify contacts state exists" \
     'jq -r "keys[0]" /var/gaia2/state/contacts.json' \
     "contacts"
+assert_contains root "judge context installed for gaia2 only (0600)" \
+    "stat -c '%U %a' /var/gaia2/judge_context.json" \
+    "gaia2 600"
+assert_fail agent "judge context is not readable" \
+    "</var/gaia2/judge_context.json"
+assert_fail agent "staged judge context is not readable" \
+    "</var/gaia2/judge_context.staged.json"
 echo ""
 
 bold "[5/7] Gaia2 CLI Tools"
@@ -283,6 +297,10 @@ assert_contains agent "calendar get-events works via gaia2-exec" \
     '"events"'
 assert_ok agent "oc wrapper is available" \
     "oc --version >/dev/null 2>&1"
+# cloud-drive is pruned for this scenario, so reach the wrapper by argv[0].
+assert_contains agent "gaia2-exec ignores the caller's GAIA2_FS_ROOT" \
+    'export GAIA2_FS_ROOT=/var/gaia2; exec -a cloud-drive /usr/local/bin/gaia2-exec cat --path judge_context.json' \
+    "File not found"
 echo ""
 
 bold "[6/7] PATH Restrictions"

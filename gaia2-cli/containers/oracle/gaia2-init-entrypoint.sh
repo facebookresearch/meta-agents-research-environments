@@ -19,6 +19,9 @@
 #   GAIA2_JUDGE_PROVIDER — LLM provider for judge
 #   GAIA2_JUDGE_BASE_URL — optional custom API base URL for judge
 #   GAIA2_JUDGE_API_KEY  — optional API key override for the in-container judge
+#   GAIA2_JUDGE_CONTEXT  — judge-only task text for gaia2-eventd (default:
+#                          /var/gaia2/judge_context.json), installed from the
+#                          launcher's read-only copy at $JUDGE_CONTEXT_STAGED
 #   GAIA2_JUDGE_FINAL_TURN — enable final-turn judging ("1")
 
 set -eo pipefail
@@ -27,6 +30,8 @@ export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 CUSTOM_SCENARIO="${GAIA2_SCENARIO:-/var/gaia2/custom_scenario.json}"
 ADAPTER_PORT="${GAIA2_ADAPTER_PORT:-8090}"
+JUDGE_CONTEXT_STAGED=/var/gaia2/judge_context.staged.json
+JUDGE_CONTEXT_PATH="${GAIA2_JUDGE_CONTEXT:-/var/gaia2/judge_context.json}"
 
 # ── 1. Initialize state directory ─────────────────────────────────────────
 if [ ! -f "$CUSTOM_SCENARIO" ]; then
@@ -65,6 +70,16 @@ if st and float(st) > 0:
     echo "[gaia2-init] Done" >&2
 fi
 
+# ── 1b. Install the judge-only task text ──────────────────────────────────
+# For user turns delivered to the agent as audio (gaia2_core/judge_context.py).
+# gaia2-eventd reads only a copy owned by gaia2 with mode 0600. No agent runs
+# in this image (the scenario itself is reachable through the 711 /var/gaia2),
+# so unlike the agent images there is no readability check on the staged copy.
+if [ -f "$JUDGE_CONTEXT_STAGED" ]; then
+    install -o gaia2 -g gaia2 -m 0600 "$JUDGE_CONTEXT_STAGED" "$JUDGE_CONTEXT_PATH"
+    echo "[gaia2-init] Installed judge context at $JUDGE_CONTEXT_PATH" >&2
+fi
+
 # ── 2. Prepare faketime + start gaia2-eventd daemon ────────────────────────
 if [ -f "$CUSTOM_SCENARIO" ]; then
     if [ -n "$FAKETIME" ]; then
@@ -87,6 +102,7 @@ if [ -f "$CUSTOM_SCENARIO" ]; then
         export PATH=/usr/local/bin:/usr/bin:/bin
         export GAIA2_STATE_DIR=/var/gaia2/state
         ${GAIA2_JUDGE_FINAL_TURN:+export GAIA2_JUDGE_FINAL_TURN='$GAIA2_JUDGE_FINAL_TURN'}
+        export GAIA2_JUDGE_CONTEXT='$JUDGE_CONTEXT_PATH'
         ${http_proxy:+export http_proxy='$http_proxy'}
         ${https_proxy:+export https_proxy='$https_proxy'}
         ${no_proxy:+export no_proxy='$no_proxy'}

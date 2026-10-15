@@ -145,6 +145,17 @@ class TestLoadDatasetScenarios:
         assert root is None
         assert tmpdir is None
 
+    def test_judge_context_sidecars_are_not_scenarios(self, tmp_path: Path) -> None:
+        """``<stem>.judge_context.json`` next to a scenario is not run as one."""
+        _make_scenario(tmp_path / "s1.json", "s1")
+        (tmp_path / "s1.judge_context.json").write_text(
+            json.dumps({"version": 1, "turns": {"Event-USER-1": {"text": "x"}}})
+        )
+
+        paths, _, _ = _load_dataset_scenarios(str(tmp_path), None, recursive=True)
+
+        assert [p.name for p in paths] == ["s1.json"]
+
     def test_default_is_recursive(self, tmp_path: Path) -> None:
         """Default behavior (no recursive kwarg) is recursive."""
         _make_scenario(tmp_path / "sub" / "s1.json", "s1")

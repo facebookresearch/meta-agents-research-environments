@@ -279,6 +279,140 @@ class TestLoadScenario:
 
 
 # ---------------------------------------------------------------------------
+# TestJudgeContext
+# ---------------------------------------------------------------------------
+
+_JUDGE_TEXT = "Find the txt file about Copa America 2024 in my news folder."
+
+
+def _write_judge_context(scenario_path: Path, turns: dict, version: int = 1) -> Path:
+    """Write ``<scenario stem>.judge_context.json`` next to *scenario_path*."""
+    path = scenario_path.with_name(scenario_path.stem + ".judge_context.json")
+    path.write_text(
+        json.dumps(
+            {"version": version, "turns": {k: {"text": v} for k, v in turns.items()}}
+        )
+    )
+    path.chmod(0o600)
+    return path
+
+
+class TestJudgeContext:
+    """The judge-only task text sidecar (gaia2_core.judge_context)."""
+
+    def _run(self, scenario_path: Path, daemon_status: dict) -> tuple[dict, MagicMock]:
+        launcher = _mock_launcher()
+        runner = _make_runner(launcher)
+
+        def fake_poll(*_args, **_kwargs):
+            runner._last_daemon_status = daemon_status
+            return "Agent response", daemon_status["status"]
+
+        with (
+            patch.object(runner, "_poll_for_response", side_effect=fake_poll),
+            patch.object(runner, "_collect_events", return_value=("", None)),
+            patch.object(runner, "_extract_trace_file"),
+        ):
+            return runner.run_scenario(str(scenario_path)), launcher
+
+    @pytest.mark.parametrize(
+        "turns, version, expected",
+        [
+            ({"Event-USER-abc": _JUDGE_TEXT}, 2, "unsupported version 2"),
+            ({"Event-USER-typo": _JUDGE_TEXT}, 1, "Event-USER-typo"),
+        ],
+    )
+    def test_a_bad_judge_context_fails_before_launch(
+        self, tmp_path: Path, turns: dict, version: int, expected: str
+    ) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        _write_judge_context(scenario_path, turns, version)
+
+        result, launcher = self._run(scenario_path, {"status": "complete"})
+
+        launcher.launch.assert_not_called()
+        assert result["success"] is None
+        assert expected in result["error"]
+        assert _JUDGE_TEXT not in result["error"]
+
+    def test_a_world_readable_judge_context_fails_before_launch(
+        self, tmp_path: Path
+    ) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        _write_judge_context(scenario_path, {"Event-USER-abc": _JUDGE_TEXT}).chmod(
+            0o644
+        )
+
+        result, launcher = self._run(scenario_path, {"status": "complete"})
+
+        launcher.launch.assert_not_called()
+        assert result["success"] is None
+        assert "chmod 600" in result["error"]
+
+    def test_verdict_stands_when_the_daemon_applied_the_judge_context(
+        self, tmp_path: Path
+    ) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        _write_judge_context(scenario_path, {"Event-USER-abc": _JUDGE_TEXT})
+
+        result, launcher = self._run(
+            scenario_path,
+            {
+                "status": "complete",
+                "turn": 1,
+                "nb_turns": 1,
+                "judge_context_turns": 1,
+                "judgment": {"success": True},
+            },
+        )
+
+        launcher.launch.assert_called_once()
+        assert result["success"] is True
+        assert result["reward"] == 1.0
+
+    def test_verdict_is_discarded_when_the_daemon_did_not_apply_it(
+        self, tmp_path: Path
+    ) -> None:
+        # An image without judge-context support grades the carrier text;
+        # its verdict must not be scored as if it graded the prompt.
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        _write_judge_context(scenario_path, {"Event-USER-abc": _JUDGE_TEXT})
+
+        result, _ = self._run(
+            scenario_path,
+            {
+                "status": "complete",
+                "turn": 1,
+                "nb_turns": 1,
+                "judgment": {"success": True},
+            },
+        )
+
+        assert result["success"] is None
+        assert "reward" not in result
+        assert "applied 0" in result["error"]
+        assert _JUDGE_TEXT not in json.dumps(result)
+
+    def test_daemon_refusal_of_the_judge_context_is_reported(
+        self, tmp_path: Path
+    ) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        _write_judge_context(scenario_path, {"Event-USER-abc": _JUDGE_TEXT})
+        reason = (
+            "Invalid judge context: judge context /var/gaia2/judge_context.json: "
+            "mode is 0640; it must be 0600"
+        )
+
+        result, _ = self._run(
+            scenario_path,
+            {"status": "error", "turn": 0, "nb_turns": 1, "error": reason},
+        )
+
+        assert result["success"] is None
+        assert result["error"] == f"Daemon error: {reason}"
+
+
+# ---------------------------------------------------------------------------
 # TestBuildContainerEnv
 # ---------------------------------------------------------------------------
 

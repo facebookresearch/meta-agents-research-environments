@@ -151,7 +151,11 @@ At runtime the container does this:
 1. `gaia2-init-entrypoint.sh` initializes scenario state and renders the prompt.
    In sequential runs the runner copies the carried agent home and app state in
    before the container starts, and this step lays the carried app state over
-   the fresh one.
+   the fresh one. When the launcher staged a judge context at
+   `/var/gaia2/judge_context.staged.json`, this step installs the copy
+   gaia2-eventd reads (`/var/gaia2/judge_context.json`, `gaia2`, mode `0600`)
+   and stops if the agent user could read the staged one (see
+   [runner/README.md](../../runner/README.md#judge-only-task-text)).
 2. `gaia2-eventd` starts as `gaia2`
 3. `gaia2_adapter.py` starts as `gaia2`
 4. optional `tls_proxy.py` starts as `root` when faketime is active

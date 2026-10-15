@@ -21,6 +21,9 @@
 #   GAIA2_ADAPTER_PORT   — adapter HTTP port (default: 8090)
 #   GAIA2_JUDGE_BASE_URL — optional API base URL override for the in-container judge
 #   GAIA2_JUDGE_API_KEY  — optional API key override for the in-container judge
+#   GAIA2_JUDGE_CONTEXT  — judge-only task text for gaia2-eventd (default:
+#                          /var/gaia2/judge_context.json), installed from the
+#                          launcher's read-only copy at $JUDGE_CONTEXT_STAGED
 #   FAKETIME            — simulated start time (e.g., "2025-09-01 07:00:00")
 #   PROVIDER/MODEL/API_KEY/BASE_URL/THINKING/MAX_TOKENS — Hermes runtime config
 
@@ -30,6 +33,8 @@ export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 CUSTOM_SCENARIO="${GAIA2_SCENARIO:-/var/gaia2/custom_scenario.json}"
 ADAPTER_PORT="${GAIA2_ADAPTER_PORT:-8090}"
+JUDGE_CONTEXT_STAGED=/var/gaia2/judge_context.staged.json
+JUDGE_CONTEXT_PATH="${GAIA2_JUDGE_CONTEXT:-/var/gaia2/judge_context.json}"
 
 # ── 1. Initialise Gaia2 state ──────────────────────────────────────────────
 if [ ! -f "$CUSTOM_SCENARIO" ]; then
@@ -87,6 +92,21 @@ print(' '.join(r.get('remove', [])))
     echo "[gaia2-init] Done" >&2
 fi
 
+# ── 1b. Install the judge-only task text ──────────────────────────────────
+# For user turns the agent receives as audio (gaia2_core/judge_context.py).
+# gaia2-eventd reads only a copy owned by gaia2 with mode 0600. The staged
+# mount stays in place for the whole run, so refuse to start the agent at all
+# if it could read that one.
+if [ -f "$JUDGE_CONTEXT_STAGED" ]; then
+    if su -s /usr/bin/bash agent -c "test -r '$JUDGE_CONTEXT_STAGED'"; then
+        echo "[gaia2-init] ERROR: the agent user can read $JUDGE_CONTEXT_STAGED;" \
+            "mount the judge context from a host file only its owner can read (mode 0600)" >&2
+        exit 1
+    fi
+    install -o gaia2 -g gaia2 -m 0600 "$JUDGE_CONTEXT_STAGED" "$JUDGE_CONTEXT_PATH"
+    echo "[gaia2-init] Installed judge context at $JUDGE_CONTEXT_PATH" >&2
+fi
+
 # ── 2. Start gaia2-eventd daemon as gaia2 user ──────────────────────────────
 # The daemon watches events.jsonl for turn boundaries, runs the judge,
 # fires ENV reactions via CLI, and sends follow-up messages via the adapter.
@@ -108,6 +128,7 @@ if [ "${GAIA2_DAEMON_DISABLE:-0}" != "1" ] && [ -f "$CUSTOM_SCENARIO" ]; then
         export PATH=/usr/local/bin:/usr/bin:/bin
         export GAIA2_STATE_DIR=/var/gaia2/state
         ${GAIA2_JUDGE_FINAL_TURN:+export GAIA2_JUDGE_FINAL_TURN='$GAIA2_JUDGE_FINAL_TURN'}
+        export GAIA2_JUDGE_CONTEXT='$JUDGE_CONTEXT_PATH'
         /usr/local/bin/gaia2-eventd \
             --scenario '$CUSTOM_SCENARIO' \
             --state-dir /var/gaia2/state \

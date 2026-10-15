@@ -26,6 +26,12 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from gaia2_core.judge_context import (
+    JudgeContextError,
+    check_user_turn_ids,
+    judge_context_sidecar_path,
+    load_judge_context,
+)
 
 from gaia2_runner.events_converter import convert_events_jsonl
 from gaia2_runner.launcher import ContainerLauncher
@@ -175,6 +181,12 @@ class ContainerRunner:
         container_id = None
         artifact_dir: Path | None = None
         try:
+            # Fail before launching if the judge-only task text is malformed;
+            # the launcher installs it for gaia2-eventd.
+            judge_context_turns = self._judge_context_turns(
+                scenario_path, scenario_data
+            )
+
             effective_env = self._build_container_env(
                 scenario_data, container_env, output_dir
             )
@@ -288,13 +300,35 @@ class ContainerRunner:
                     "In-container judgment: %s",
                     "PASS" if success else "FAIL",
                 )
+                applied = daemon_status.get("judge_context_turns", 0)
+                if judge_context_turns and applied != judge_context_turns:
+                    # The verdict graded what the agent was sent (e.g. an
+                    # audio carrier string), not the original prompt.
+                    error_msg = (
+                        f"Judge context covers {judge_context_turns} user "
+                        f"turn(s) but gaia2-eventd applied {applied}: the "
+                        "image may predate judge-context support (rebuild "
+                        "it) or the launcher did not mount the judge context"
+                    )
+                    logger.error("%s: %s", scenario_id, error_msg)
+                    result = {
+                        "scenario_id": scenario_id,
+                        "success": None,
+                        "error": error_msg,
+                        "num_agent_events": result["num_agent_events"],
+                        "agent_response": agent_response,
+                    }
             else:
                 # No judgment — the daemon never saw a turn boundary
                 # (no send_message_to_user in events.jsonl), or it
                 # hit the idle timeout waiting for agent activity.
                 ds = daemon_status.get("status", "unknown")
                 num_events = len(convert_events_jsonl(events_raw))
-                if ds == "error":
+                if ds == "error" and daemon_status.get("error"):
+                    # The daemon stopped for a stated reason (e.g. the adapter
+                    # refused the user turn), not because the agent went idle.
+                    error_msg = f"Daemon error: {daemon_status['error']}"
+                elif ds == "error":
                     error_msg = (
                         f"Daemon error: no turn boundary detected "
                         f"({num_events} tool calls, idle timeout or agent stuck)"
@@ -528,6 +562,45 @@ class ContainerRunner:
         logger.info("Running scenario %s from %s", scenario_id, scenario_path.name)
 
         return scenario_path, scenario_data, scenario_id
+
+    @staticmethod
+    def _judge_context_turns(
+        scenario_path: Path,
+        scenario_data: dict[str, Any],
+    ) -> int:
+        """Validate the scenario's judge context; return how many turns it covers.
+
+        The judge context (``<scenario stem>.judge_context.json`` next to the
+        scenario, see ``gaia2_core.judge_context``) holds the original text of
+        user turns the agent receives in another form, such as audio.  Returns
+        0 when there is none.
+
+        Raises:
+            JudgeContextError: It is world-readable, malformed, or names events
+                that are not user turns of this scenario.
+        """
+        sidecar = judge_context_sidecar_path(scenario_path)
+        texts = load_judge_context(sidecar, missing_ok=True)
+        if texts is None:
+            return 0
+        mode = sidecar.stat().st_mode & 0o777
+        if mode & 0o004:
+            # Inside the container the agent would be "other" too, and the
+            # init entrypoint refuses to start; say so before launching.
+            raise JudgeContextError(
+                f"judge context {sidecar} is readable by every user (mode "
+                f"{mode:04o}); chmod 600 it so the agent cannot read it"
+            )
+        user_turn_ids = {
+            str(ev.get("event_id"))
+            for ev in scenario_data.get("events") or []
+            if isinstance(ev, dict)
+            and ev.get("event_type") == "USER"
+            and (ev.get("action") or {}).get("function") == "send_message_to_agent"
+        }
+        check_user_turn_ids(texts, user_turn_ids)
+        logger.info("Judge context: original text for %d user turn(s)", len(texts))
+        return len(texts)
 
     def _build_container_env(
         self,

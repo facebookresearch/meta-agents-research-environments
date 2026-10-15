@@ -282,6 +282,45 @@ plus `--context-window N` if needed.
   at its first scenario without a verdict and reruns the rest of that chain.
 - Results gain `universe_id` and `universe_position` (0-based) fields.
 
+## Judge-Only Task Text
+
+When a scenario gives the agent a user turn in another form (for example an
+audio prompt behind a neutral carrier string in `content`), the judge still
+has to grade against the original prompt. That text lives in a sidecar next to
+the scenario file, never in the scenario itself:
+
+```text
+my_dataset/search/scenario_1.json
+my_dataset/search/scenario_1.judge_context.json
+```
+
+```json
+{"version": 1, "turns": {"Event-USER-a188eb04-...": {"text": "<original prompt>"}}}
+```
+
+- Keys are event ids of the scenario's USER `send_message_to_agent` events.
+  Turns that are not listed keep their own `content`. No other keys are
+  allowed; a malformed file, an unknown version, or an id that is not a user
+  turn of that scenario fails the scenario before its container starts.
+- `run-dataset` does not treat the sidecar as a scenario (it has no
+  `metadata.definition.scenario_id`).
+- The launcher mounts it read-only at `/var/gaia2/judge_context.staged.json`.
+  The init entrypoint installs the copy gaia2-eventd reads,
+  `/var/gaia2/judge_context.json` (`$GAIA2_JUDGE_CONTEXT`), owned by `gaia2`
+  with mode `0600`, and refuses to start the agent if the agent user could read
+  the staged mount. Keep the host file at mode `0600`; the runner refuses a
+  world-readable one before launching.
+- gaia2-eventd refuses a copy that is not `0600` and owned by `gaia2`, and
+  stops at once with `status=error`; the run then reports
+  `error: "Daemon error: Invalid judge context: ..."`. Logs, `daemon_status.json`
+  and `judgments.jsonl` name paths, event ids and counts, never the text.
+- `daemon_status.json` reports `judge_context_turns`. If it does not match the
+  sidecar (for example an image built before this feature), the in-container
+  verdict is discarded and the scenario is recorded as an error rather than
+  scored against the carrier text.
+- Host-side re-judging through `gaia2_core.loader.ScenarioLoader` picks the
+  sidecar up automatically from next to the scenario file.
+
 ## Secrets and `.env`
 
 The runner auto-loads `gaia2-cli/.env` by default, or a custom dotenv file via

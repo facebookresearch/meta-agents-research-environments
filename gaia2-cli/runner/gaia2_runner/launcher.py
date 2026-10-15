@@ -202,6 +202,27 @@ def _start_proxy_relay(
     return t
 
 
+def judge_context_volume(scenario_json_path: str) -> str | None:
+    """Return the read-only ``src:dst:ro`` mount for the scenario's judge context.
+
+    The judge context (``<scenario stem>.judge_context.json`` next to the
+    scenario, see ``gaia2_core.judge_context``) holds the original text of
+    user turns the agent receives as audio.  It is staged under
+    ``/var/gaia2``, which the agent cannot read, and the init entrypoint
+    installs the ``0600`` gaia2-owned copy that gaia2-eventd reads.  Returns
+    ``None`` when the scenario has no judge context.
+    """
+    from gaia2_core.judge_context import (
+        STAGED_JUDGE_CONTEXT_PATH,
+        judge_context_sidecar_path,
+    )
+
+    judge_context = judge_context_sidecar_path(scenario_json_path)
+    if not judge_context.is_file():
+        return None
+    return f"{judge_context}:{STAGED_JUDGE_CONTEXT_PATH}:ro"
+
+
 # ── Launcher ABC ────────────────────────────────────────────────────────
 
 
@@ -233,6 +254,11 @@ class ContainerLauncher(ABC):
 
         *seed_dirs* maps container paths to host directories whose contents
         are copied into the container before its entrypoint starts.
+
+        A judge context next to the scenario must be mounted as
+        :func:`judge_context_volume` describes: it holds the original text of
+        user turns the agent receives as audio, so it must never be readable
+        by the agent.
         """
 
     @abstractmethod
@@ -462,6 +488,9 @@ class LocalLauncher(ContainerLauncher):
                 "bash",
             ]
         )
+        judge_context = judge_context_volume(scenario_json_path)
+        if judge_context:
+            cmd.extend(["-v", judge_context])
         for volume in extra_volumes or ():
             cmd.extend(["-v", volume])
 

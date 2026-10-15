@@ -89,7 +89,9 @@ For direct Google AI Studio runs, use `PROVIDER=gemini` and set
 
 At runtime the container does this:
 
-1. `gaia2-init-entrypoint.sh` initializes state and renders the prompt
+1. `gaia2-init-entrypoint.sh` initializes state and renders the prompt, and
+   installs a staged judge context for gaia2-eventd (`gaia2`, mode `0600`; see
+   [runner/README.md](../../runner/README.md#judge-only-task-text))
 2. `gaia2-eventd` starts as `gaia2`
 3. `gaia2_adapter.py` starts as `gaia2`
 4. `entrypoint.sh` starts `hermes_worker.py` as `agent`

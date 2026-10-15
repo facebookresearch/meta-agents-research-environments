@@ -21,6 +21,9 @@
 #   GAIA2_ADAPTER_PORT   — adapter HTTP port (default: 8090)
 #   GAIA2_JUDGE_BASE_URL — optional API base URL override for the in-container judge
 #   GAIA2_JUDGE_API_KEY  — optional API key override for the in-container judge
+#   GAIA2_JUDGE_CONTEXT  — judge-only task text for gaia2-eventd (default:
+#                          /var/gaia2/judge_context.json), installed from the
+#                          launcher's read-only copy at $JUDGE_CONTEXT_STAGED
 #   FAKETIME             — simulated start time (e.g., "2025-09-01 07:00:00")
 #   OPENCLAW_CONTEXT_WINDOW — optional context window override (tokens)
 #   API_KEY / provider-specific keys — forwarded to the agent runtime
@@ -42,6 +45,8 @@ ADAPTER_LOG=/tmp/gaia2-adapter.log
 ENTRYPOINT_LOG=/tmp/entrypoint.log
 TLS_PROXY_PORT_FILE=/tmp/tls-proxy-port
 AGENT_ENV_FILE=/tmp/openclaw-env.sh
+JUDGE_CONTEXT_STAGED=/var/gaia2/judge_context.staged.json
+JUDGE_CONTEXT_PATH="${GAIA2_JUDGE_CONTEXT:-/var/gaia2/judge_context.json}"
 
 
 detect_faketime_from_scenario() {
@@ -145,6 +150,22 @@ init_state() {
 }
 
 
+install_judge_context() {
+    # Judge-only task text (gaia2_core/judge_context.py) for user turns the
+    # agent receives as audio. gaia2-eventd reads only a copy owned by gaia2
+    # with mode 0600. The staged mount stays in place for the whole run, so
+    # refuse to start the agent at all if it could read that one.
+    [ -f "$JUDGE_CONTEXT_STAGED" ] || return 0
+    if su -s /usr/bin/bash agent -c "test -r '$JUDGE_CONTEXT_STAGED'"; then
+        echo "[gaia2-init] ERROR: the agent user can read $JUDGE_CONTEXT_STAGED;" \
+            "mount the judge context from a host file only its owner can read (mode 0600)" >&2
+        exit 1
+    fi
+    install -o gaia2 -g gaia2 -m 0600 "$JUDGE_CONTEXT_STAGED" "$JUDGE_CONTEXT_PATH"
+    echo "[gaia2-init] Installed judge context at $JUDGE_CONTEXT_PATH" >&2
+}
+
+
 prepare_faketime_file() {
     if [ -n "${FAKETIME:-}" ]; then
         echo "$FAKETIME" > "$FAKETIME_FILE"
@@ -174,6 +195,7 @@ start_eventd() {
         export PATH=/usr/local/bin:/usr/bin:/bin
         export GAIA2_STATE_DIR='$STATE_DIR'
         ${GAIA2_JUDGE_FINAL_TURN:+export GAIA2_JUDGE_FINAL_TURN='$GAIA2_JUDGE_FINAL_TURN'}
+        export GAIA2_JUDGE_CONTEXT='$JUDGE_CONTEXT_PATH'
         ${http_proxy:+export http_proxy='$http_proxy'}
         ${https_proxy:+export https_proxy='$https_proxy'}
         ${no_proxy:+export no_proxy='$no_proxy'}
@@ -322,6 +344,7 @@ exec_agent_entrypoint() {
 main() {
     claim_agent_home
     init_state
+    install_judge_context
     start_eventd
     start_adapter
     start_tls_proxy_if_needed

@@ -87,6 +87,18 @@ class ScenarioLoader:
     """
 
     def __init__(self, scenario_path: str) -> None:
+        """Parse *scenario_path*.
+
+        A judge context next to the scenario (``<stem>.judge_context.json``,
+        see ``gaia2_core.judge_context``) supplies the judge's task text for
+        the user turns it lists, so host-side re-judging grades against the
+        original prompt.  ``gaia2-eventd`` replaces it with its private copy
+        (``set_judge_context``).
+
+        Raises:
+            JudgeContextError: The sidecar is malformed or names events that
+                are not user turns of this scenario.
+        """
         with open(scenario_path) as f:
             data = json.load(f)
 
@@ -123,6 +135,25 @@ class ScenarioLoader:
             or 1.0
         )
         self.nb_turns: int = 0  # set by build_event_id_to_turn_idx
+
+        # Judge-only task text for USER turns the agent receives in another
+        # form (see gaia2_core.judge_context). Only extract_oracle_data reads
+        # it; ``task`` and the events keep what the agent is sent.
+        from gaia2_core.judge_context import (
+            judge_context_sidecar_path,
+            load_judge_context,
+        )
+
+        self.judge_texts: dict[str, str] = {}
+        sidecar = judge_context_sidecar_path(scenario_path)
+        sidecar_texts = load_judge_context(sidecar, missing_ok=True)
+        if sidecar_texts is not None:
+            self.set_judge_context(sidecar_texts)
+            logger.info(
+                "ScenarioLoader: judge-only text for %d user turn(s) from %s",
+                len(self.judge_texts),
+                sidecar,
+            )
 
         logger.info(
             "ScenarioLoader: %d events, %d apps, start=%.0f, duration=%.0f, time_increment=%.1f",
@@ -193,6 +224,30 @@ class ScenarioLoader:
     # Oracle data extraction (for the judge)
     # ------------------------------------------------------------------
 
+    def set_judge_context(self, texts: dict[str, str]) -> None:
+        """Use *texts* (``{USER event id: original text}``) as the judge's task text.
+
+        Replaces any judge context loaded from the scenario's sidecar; an
+        empty mapping restores the scenario's own ``content``.  Every id must
+        name a USER ``send_message_to_agent`` event of this scenario.
+
+        Raises:
+            JudgeContextError: An id is not a user turn of this scenario.
+        """
+        from gaia2_core.judge_context import check_user_turn_ids
+
+        check_user_turn_ids(
+            texts,
+            {
+                ev.event_id
+                for ev in self.events
+                if ev.event_type == "USER"
+                and ev.action
+                and ev.action.function_name == "send_message_to_agent"
+            },
+        )
+        self.judge_texts = dict(texts)
+
     def extract_oracle_data(
         self,
         event_id_to_turn_idx: dict[str, int],
@@ -211,7 +266,9 @@ class ScenarioLoader:
         Returns:
             turn_to_oracle_events: per-turn lists of OracleEvent (topo-sorted)
             turn_to_oracle_graph: per-turn causal graphs {event_id: [parent_ids]}
-            tasks: per-turn task strings
+            tasks: per-turn task strings; a USER turn listed in
+                ``judge_texts`` contributes its judge-only text instead of
+                the ``content`` the agent was sent
             user_details: UserDetails from contacts app initial state (or None)
         """
         # --- Filter AGENT oracle events by turn ---
@@ -269,7 +326,9 @@ class ScenarioLoader:
                 and ev.action.function_name == "send_message_to_agent"
             ):
                 tidx = event_id_to_turn_idx.get(ev.event_id, 0)
-                content = ev.action.args.get("content", "")
+                content = self.judge_texts.get(ev.event_id)
+                if content is None:
+                    content = ev.action.args.get("content", "")
                 if content:
                     turn_idx_to_task[tidx] += content + "\n"
 

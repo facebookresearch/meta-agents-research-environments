@@ -149,6 +149,8 @@ class Gaia2EventDaemon:
         self._notification_mode = notification_mode
         self._time_speed = time_speed
         self._idle_timeout = idle_timeout
+        # User turns graded against judge-only text (gaia2_core.judge_context)
+        self._judge_context_turns: int = 0
 
         self._last_event_offset: int = 0  # byte offset into events.jsonl
         self._turn_count: int = 0
@@ -162,6 +164,11 @@ class Gaia2EventDaemon:
         # Populated by setup()
         self._processor: Any = None  # EventProcessor
         self._task: str | None = None
+        # Set when the run cannot continue (e.g. the adapter rejected a user
+        # turn). Sticky: daemon_status.json reports status=error plus this
+        # reason from then on, so the runner sees why without waiting out the
+        # idle timeout.
+        self._fatal_error: str | None = None
         self._final_judgment: Any = None
         self._app_name_to_class: dict[str, str] = {}
         self._app_to_agent_cli: dict[str, str] = {}  # scenario app → agent CLI name
@@ -207,6 +214,20 @@ class Gaia2EventDaemon:
             len(loader.events),
             len(loader.app_name_to_class),
         )
+
+        # ---- Judge-only task text ------------------------------------------
+        from gaia2_core.judge_context import JudgeContextError
+
+        try:
+            self._apply_judge_context(loader)
+        except JudgeContextError as e:
+            # Grading the carrier text instead would be silently wrong; stop
+            # now so the runner sees status=error without the idle timeout.
+            # The message names paths and event ids, never the text.
+            self._fatal_error = f"Invalid judge context: {e}"
+            logger.error("%s", self._fatal_error)
+            self._write_status("error")
+            raise
 
         # ---- Create EventProcessor and build turn triggers ----------------
         processor = EventProcessor(
@@ -276,6 +297,57 @@ class Gaia2EventDaemon:
         logger.info("Using file channel adapter")
         logger.info("Setup complete")
         self._write_status("running")
+
+    def _apply_judge_context(self, loader: Any) -> None:
+        """Judge listed USER turns against the original text in the side file.
+
+        The side file (``$GAIA2_JUDGE_CONTEXT``, default
+        ``/var/gaia2/judge_context.json``) carries the text of user turns the
+        agent receives in another form, such as audio behind a neutral
+        carrier string.  It must be ``0600`` and owned by the daemon user: the
+        agent may share the daemon's group.  Only counts and paths are
+        logged, never the text, because the agent can read this log.
+
+        Without the file the judge sees exactly what it always did.  A judge
+        context next to the scenario file is the host-side convention
+        (``ScenarioLoader`` reads it for offline re-judging); the daemon
+        ignores it so that its grading depends only on the private copy.
+
+        Raises:
+            JudgeContextError: The file is unreadable, not private, malformed,
+                or names events that are not user turns of this scenario.
+        """
+        from gaia2_core.judge_context import (
+            JUDGE_CONTEXT_ENV,
+            JudgeContextError,
+            judge_context_sidecar_path,
+            load_judge_context,
+            resolve_judge_context_path,
+        )
+
+        path = resolve_judge_context_path()
+        texts = load_judge_context(path, missing_ok=True, require_private=True)
+        if texts is None:
+            if loader.judge_texts:
+                logger.warning(
+                    "Ignoring %s: gaia2-eventd reads the judge context only "
+                    "from %s (set $%s to change it)",
+                    judge_context_sidecar_path(self.scenario_path),
+                    path,
+                    JUDGE_CONTEXT_ENV,
+                )
+                loader.set_judge_context({})
+            return
+        try:
+            loader.set_judge_context(texts)
+        except JudgeContextError as e:
+            raise JudgeContextError(f"judge context {path}: {e}") from None
+        self._judge_context_turns = len(texts)
+        logger.info(
+            "Judge context: original task text for %d user turn(s) from %s",
+            len(texts),
+            path,
+        )
 
     def _create_judge(self, loader: Any, processor: Any) -> Any:
         """Create a Judge from oracle data.
@@ -704,11 +776,17 @@ class Gaia2EventDaemon:
         }
         if self._last_agent_response:
             data["last_response"] = self._last_agent_response
+        if self._judge_context_turns:
+            # A count only: the runner checks the judge context it supplied
+            # was applied. The text never leaves the daemon.
+            data["judge_context_turns"] = self._judge_context_turns
         if self._final_judgment is not None:
             data["judgment"] = {
                 "success": self._final_judgment.success,
                 "failure_reason": self._final_judgment.failure_reason,
             }
+        if self._fatal_error is not None:
+            data["error"] = self._fatal_error
         status_path = self.state_dir / "daemon_status.json"
         tmp_path = status_path.with_suffix(".json.tmp")
         try:
