@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +18,8 @@ import openclaw_config
 
 FIXED_NOW = "2026-04-08T21:00:00.000Z"
 SCRIPT = Path(__file__).resolve().with_name("openclaw_config.py")
+ENTRYPOINT = Path(__file__).resolve().with_name("gaia2-init-entrypoint.sh")
+DOCKERFILE = Path(__file__).resolve().with_name("Dockerfile")
 
 
 def test_openai_without_base_url_uses_builtin_provider() -> None:
@@ -382,3 +385,30 @@ def test_exec_commands_time_out_after_a_minute_by_default() -> None:
     )
 
     assert outputs.openclaw_config["tools"]["exec"]["timeoutSec"] == 60
+
+
+def test_agent_env_routes_exec_shell_through_faketime_wrapper(tmp_path: Path) -> None:
+    # Render the agent env file with the entrypoint's own function.
+    match = re.search(
+        r"^write_agent_env_file\(\) \{\n.*?^\}\n", ENTRYPOINT.read_text(), re.M | re.S
+    )
+    assert match is not None
+    env_file = tmp_path / "openclaw-env.sh"
+    subprocess.run(
+        ["bash", "-c", "chown() { :; }\n" + match.group(0) + "write_agent_env_file"],
+        env={"PATH": os.environ["PATH"], "AGENT_ENV_FILE": str(env_file)},
+        check=True,
+    )
+
+    # `su -s /usr/bin/bash agent` sets SHELL before the env file is sourced;
+    # OpenClaw's exec tool runs "$SHELL -c", so the file must override it.
+    proc = subprocess.run(
+        ["bash", "-c", 'source "$1" && printf %s "$SHELL"', "_", str(env_file)],
+        env={"PATH": os.environ["PATH"], "SHELL": "/usr/bin/bash"},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert proc.stdout == "/home/agent/bin/bash"
+    assert "> /home/agent/bin/bash" in DOCKERFILE.read_text()

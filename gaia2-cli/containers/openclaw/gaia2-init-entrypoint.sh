@@ -284,6 +284,9 @@ export HOME=/home/agent
 export PATH=/home/agent/bin
 export GAIA2_STATE_DIR=/var/gaia2/state
 export DONT_FAKE_MONOTONIC=1
+# su sets SHELL=/usr/bin/bash and OpenClaw's exec tool runs "$SHELL -c";
+# route it through the faketime-aware wrapper so agent commands see sim time.
+export SHELL=/home/agent/bin/bash
 STATIC
 
     # Append runtime env vars (each safely printf-quoted to handle special chars)
