@@ -15,7 +15,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import time
+import traceback
 import uuid
 from pathlib import Path
 from typing import Any
@@ -35,6 +37,10 @@ from gaia2_cli.daemon.channel import FileChannelAdapter
 from gaia2_cli.daemon.cli_executor import build_cli_cmd, run_cli
 
 logger = logging.getLogger(__name__)
+
+# Fatal errors are reported in daemon_status.json, which the adapter serves on
+# GET /status; keep them to a line or two.
+_MAX_STATUS_ERROR_CHARS = 500
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -78,6 +84,24 @@ def _action_to_event_dict(action: dict[str, Any]) -> dict[str, Any]:
         "successors": [],
         "dependencies": [],
     }
+
+
+def _describe(exc: BaseException) -> str:
+    """One-line summary of an exception for the status file.
+
+    ``Type: message (at file.py:line in function)``, naming the innermost
+    frame: a bare ``FileNotFoundError`` from ``ssl.py`` points at a CA bundle,
+    the same error from the loader at the scenario.
+    """
+    message = " ".join(str(exc).split())
+    summary = f"{type(exc).__name__}: {message}" if message else type(exc).__name__
+    frames = traceback.extract_tb(exc.__traceback__)
+    if frames:
+        frame = frames[-1]
+        summary += (
+            f" (at {os.path.basename(frame.filename)}:{frame.lineno} in {frame.name})"
+        )
+    return summary
 
 
 def _is_send_message_to_user(entry: dict[str, Any]) -> bool:
@@ -155,6 +179,7 @@ class Gaia2EventDaemon:
         self._total_events: int = 0  # total agent events processed
         self._running: bool = False
         self._last_agent_response: str | None = None
+        self._fatal_error: str | None = None  # reported as "error" in the status
 
         # Channel adapter (created in setup)
         self._channel: FileChannelAdapter | None = None
@@ -414,9 +439,9 @@ class Gaia2EventDaemon:
 
         try:
             self._run_file()
-        except Exception:
+        except Exception as exc:
             logger.exception("Daemon crashed")
-            self.shutdown("error")
+            self.shutdown("error", error=f"gaia2-eventd crashed: {_describe(exc)}")
 
     def _noproxy_urlopen(
         self, url: str, data: bytes | None = None, timeout: float = 10
@@ -463,6 +488,11 @@ class Gaia2EventDaemon:
         if self.notify_url:
             if not self._wait_for_notify_url():
                 logger.error("Aborting: adapter not available")
+                self.shutdown(
+                    "error",
+                    error=f"adapter at {self.notify_url} never reported a "
+                    "connected agent, so the task was not sent",
+                )
                 return
 
         # Send initial user message if available
@@ -632,9 +662,15 @@ class Gaia2EventDaemon:
 
             time.sleep(self.poll_interval)
 
-    def shutdown(self, status: str = "complete") -> None:
-        """Stop the daemon."""
+    def shutdown(self, status: str = "complete", error: str | None = None) -> None:
+        """Stop the daemon.
+
+        *error* says why a daemon stopped with ``status="error"``; it is
+        written to the status file so the runner can report it.
+        """
         self._running = False
+        if error:
+            self._fatal_error = error[:_MAX_STATUS_ERROR_CHARS]
         self._write_status(status)
         logger.info("gaia2-eventd shut down (status=%s)", status)
 
@@ -704,6 +740,8 @@ class Gaia2EventDaemon:
         }
         if self._last_agent_response:
             data["last_response"] = self._last_agent_response
+        if self._fatal_error:
+            data["error"] = self._fatal_error
         if self._final_judgment is not None:
             data["judgment"] = {
                 "success": self._final_judgment.success,
@@ -1334,7 +1372,14 @@ def main(
     )
 
     logger.info("Setting up daemon... (log: %s)", log_path)
-    daemon.setup()
+    try:
+        daemon.setup()
+    except Exception as exc:
+        # Nothing sends the task once setup fails, and without a terminal
+        # status the runner cannot tell a dead daemon from a slow agent.
+        logger.exception("Daemon setup failed")
+        daemon.shutdown("error", error=f"gaia2-eventd setup failed: {_describe(exc)}")
+        sys.exit(1)
 
     logger.info("Starting daemon...")
     try:

@@ -15,6 +15,11 @@
 #
 # The gaia2-cli base provides: Python 3.12, CLI tools, curl, jq, libfaketime
 # The openclaw-builder stage installs: Node.js 22, OpenClaw gateway from npm
+#
+# Files from the build context are copied with an explicit numeric --chmod:
+# COPY keeps the checkout's modes, and a checkout made under a restrictive
+# umask (0007 gives 0660 files) would leave them unreadable to the gaia2 and
+# agent users. podman/buildah 1.23 accept numeric modes only.
 
 # Build args (declared before FROM so all stages can use them)
 ARG GAIA2_CLI_IMAGE=localhost/gaia2-cli
@@ -25,7 +30,7 @@ FROM debian:bookworm-slim AS gaia2-exec-builder
 RUN echo 'APT::Sandbox::User "root";' | tee -a /etc/apt/apt.conf.d/10sandbox
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
-COPY shared/gaia2-exec.c /tmp/gaia2-exec.c
+COPY --chmod=0644 shared/gaia2-exec.c /tmp/gaia2-exec.c
 RUN gcc -O2 -o /tmp/gaia2-exec /tmp/gaia2-exec.c && strip /tmp/gaia2-exec
 
 # ── Stage 2: Install Node.js + OpenClaw from scratch ────────────────────
@@ -85,7 +90,7 @@ RUN mkdir -p /opt/tls-proxy && \
     chmod 600 /opt/tls-proxy/ca.key /opt/tls-proxy/host.key
 
 # ── MITM TLS proxy script ─────────────────────────────────────────────────
-COPY shared/tls_proxy.py /opt/tls_proxy.py
+COPY --chmod=0644 shared/tls_proxy.py /opt/tls_proxy.py
 
 # ── Clear/set env vars ───────────────────────────────────────────────────
 ENV OPENCLAW_AVAILABLE=""
@@ -108,7 +113,7 @@ RUN printf '#!/bin/bash\nexport NODE_EXTRA_CA_CERTS="${NODE_EXTRA_CA_CERTS:-/opt
   > /usr/local/bin/oc && chmod +x /usr/local/bin/oc
 
 # ── Custom launch.mjs (proxy dispatcher + transport shim) ────────────────
-COPY containers/openclaw/launch.mjs containers/openclaw/launch_request_utils.mjs /opt/chatbot/
+COPY --chmod=0644 containers/openclaw/launch.mjs containers/openclaw/launch_request_utils.mjs /opt/chatbot/
 
 # ── Rename openclaw.mjs to gaia2-gw.mjs (some hosts kill "openclaw" processes) ─
 RUN if [ -f /opt/chatbot/openclaw.mjs ]; then \
@@ -201,14 +206,13 @@ RUN printf '#!/usr/bin/bash\nif [ -f /tmp/faketime.rc ]; then\n  export LD_PRELO
     cp /home/agent/bin/bash /home/agent/bin/sh
 
 # ── OpenClaw config + adapter + entrypoint ───────────────────────────────
-COPY shared/gaia2_adapter_base.py /opt/gaia2_adapter_base.py
-COPY shared/render_agent_prompt.py /opt/render_agent_prompt.py
-COPY shared/AGENTS_TEMPLATE.md /opt/AGENTS_TEMPLATE.md
-COPY containers/openclaw/gaia2_adapter.py /opt/gaia2_adapter.py
-COPY containers/openclaw/openclaw_config.py /opt/openclaw_config.py
-COPY containers/openclaw/openclaw-setup.sh /etc/profile.d/openclaw-setup.sh
-COPY containers/openclaw/entrypoint.sh /opt/entrypoint.sh
-RUN chmod +x /opt/entrypoint.sh
+COPY --chmod=0644 shared/gaia2_adapter_base.py /opt/gaia2_adapter_base.py
+COPY --chmod=0644 shared/render_agent_prompt.py /opt/render_agent_prompt.py
+COPY --chmod=0644 shared/AGENTS_TEMPLATE.md /opt/AGENTS_TEMPLATE.md
+COPY --chmod=0644 containers/openclaw/gaia2_adapter.py /opt/gaia2_adapter.py
+COPY --chmod=0644 containers/openclaw/openclaw_config.py /opt/openclaw_config.py
+COPY --chmod=0644 containers/openclaw/openclaw-setup.sh /etc/profile.d/openclaw-setup.sh
+COPY --chmod=0755 containers/openclaw/entrypoint.sh /opt/entrypoint.sh
 
 ENV HOME=/home/agent
 
@@ -225,8 +229,8 @@ ENV PATH="/home/agent/bin"
 
 # ── Entrypoint ─────────────────────────────────────────────────────────
 USER root
-COPY containers/openclaw/gaia2-init-entrypoint.sh /opt/gaia2-init-entrypoint.sh
-RUN chmod +x /opt/gaia2-init-entrypoint.sh
+COPY --chmod=0644 shared/gaia2-tls-env.sh /opt/gaia2-tls-env.sh
+COPY --chmod=0755 containers/openclaw/gaia2-init-entrypoint.sh /opt/gaia2-init-entrypoint.sh
 
 ENTRYPOINT []
 CMD ["/usr/bin/bash", "/opt/gaia2-init-entrypoint.sh"]

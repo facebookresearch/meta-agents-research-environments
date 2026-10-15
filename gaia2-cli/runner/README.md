@@ -43,6 +43,13 @@ The runner treats each container as the same abstract backend: send the initial
 task over `/notify`, poll `/messages` or `/status`, and then collect artifacts
 after completion.
 
+If `gaia2-eventd` cannot run the scenario (for example its judge fails to
+load), it stops with `"status": "error"` and the reason in an `"error"` field
+of `daemon_status.json`. The runner reports such a scenario as an error with
+that reason (`Daemon error: gaia2-eventd setup failed: …`) as soon as it reads
+the status, instead of waiting out the activity timeout. An adapter that still
+reports no daemon status 120 s after becoming ready is treated the same way.
+
 ## Commands
 
 | Command | Use it for |
@@ -395,6 +402,16 @@ Two additional host-side knobs are supported:
 - `GAIA2_PROXY_RELAY_URL` to start a local relay when only the host can use the
   real outbound proxy
 - `GAIA2_CA_BUNDLE` to mount a custom CA bundle into runtimes that need it
+  (it must be world-readable: the in-container users cannot read anything else)
 
 That logic lives in the runner, not the containers themselves. If you use
 `podman run` directly, you need to pass equivalent env vars by hand.
+
+The containers do protect themselves from one thing: before starting any
+process, each `gaia2-init-entrypoint.sh` replaces `SSL_CERT_FILE`,
+`REQUESTS_CA_BUNDLE` and `CURL_CA_BUNDLE` with the image's CA bundle, and
+unsets `SSL_CERT_DIR` and `NODE_EXTRA_CA_CERTS`, when they name a missing
+path or a bundle the `gaia2` and `agent` users cannot read. Launchers that pass the host
+environment through (apptainer, for one) otherwise hand the container
+host-only paths on which httpx (and with it the litellm judge), requests and
+curl all fail.

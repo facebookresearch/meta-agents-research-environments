@@ -39,11 +39,18 @@ _RESET = "\033[0m"
 DEFAULT_RESPONSE_TIMEOUT = 600
 # Timeout for waiting for adapter health (seconds)
 DEFAULT_HEALTH_TIMEOUT = 120
+# Seconds the adapter may keep answering "waiting" (no daemon_status.json yet)
+# once polling starts. gaia2-eventd writes its first status within seconds of
+# starting, before the adapter even reports ready, so a daemon still silent
+# after this long died before it could report (and never sent the task).
+DEFAULT_DAEMON_STARTUP_TIMEOUT = 120
 
 # Container path where the LLM trace is written (read back by _extract_trace_file)
 _CONTAINER_TRACE_PATH = "/tmp/trace.jsonl"
 _CONTAINER_DAEMON_STATUS_PATH = "/var/gaia2/state/daemon_status.json"
 _TERMINAL_DAEMON_STATUSES = frozenset({"complete", "stopped", "error"})
+# Returned by _poll_for_response when the daemon never wrote a status.
+_DAEMON_MISSING = "daemon_missing"
 _POLL_FAILURE_SHORTCIRCUIT_THRESHOLD = 5
 
 # App state carried between chained scenarios (sequential runs). The init
@@ -246,8 +253,20 @@ class ContainerRunner:
             poll_elapsed = time.monotonic() - poll_start
             timed_out = poll_elapsed >= effective_timeout - 1
 
+            # A daemon that stopped with an error says why; an empty run is
+            # then expected and must not hide that reason.
+            daemon_error = self._daemon_error(self._last_daemon_status)
+            if daemon_error is None and daemon_status == _DAEMON_MISSING:
+                daemon_error = (
+                    "gaia2-eventd wrote no status within "
+                    f"{DEFAULT_DAEMON_STARTUP_TIMEOUT}s of the adapter becoming "
+                    "ready, so it most likely failed to start and the task was "
+                    "never sent"
+                )
             events_raw, agent_response = self._collect_events(
-                container_id, agent_response
+                container_id,
+                agent_response,
+                require_activity=daemon_error is None,
             )
 
             artifact_dir = self._ensure_artifact_dir(output_dir, scenario_id)
@@ -294,7 +313,13 @@ class ContainerRunner:
                 # hit the idle timeout waiting for agent activity.
                 ds = daemon_status.get("status", "unknown")
                 num_events = len(convert_events_jsonl(events_raw))
-                if ds == "error":
+                daemon_error = self._daemon_error(daemon_status) or daemon_error
+                if daemon_error is not None:
+                    error_msg = (
+                        f"Daemon error: {daemon_error} "
+                        f"({num_events} tool calls; see eventd.log)"
+                    )
+                elif ds == "error":
                     error_msg = (
                         f"Daemon error: no turn boundary detected "
                         f"({num_events} tool calls, idle timeout or agent stuck)"
@@ -313,7 +338,7 @@ class ContainerRunner:
                     scenario_id,
                     error_msg,
                 )
-                if timed_out and scenario_duration is not None:
+                if timed_out and scenario_duration is not None and daemon_error is None:
                     # Agent exceeded the scenario's declared duration
                     # (e.g. 330s for time scenarios) plus a 60s buffer.
                     # This is a model failure, not an infra error.
@@ -609,6 +634,8 @@ class ContainerRunner:
         self,
         container_id: str,
         agent_response: str | None,
+        *,
+        require_activity: bool = True,
     ) -> tuple[str, str | None]:
         """Extract events.jsonl and resolve the agent response.
 
@@ -616,14 +643,15 @@ class ContainerRunner:
         polling loop didn't catch it (e.g. race condition).
 
         Returns (events_raw, resolved_agent_response).
-        Raises RuntimeError if the agent produced no response and no events.
+        Raises RuntimeError if the agent produced no response and no events,
+        unless *require_activity* is False (the daemon already reported why).
         """
         events_raw = self._read_events_jsonl(container_id)
 
         if not agent_response:
             agent_response = self._extract_response_from_events(events_raw)
 
-        if not agent_response and not events_raw.strip():
+        if require_activity and not agent_response and not events_raw.strip():
             raise RuntimeError(
                 "Agent produced no response and no events (container or LLM failure)"
             )
@@ -697,22 +725,29 @@ class ContainerRunner:
         interval: float = 2.0,
         activity_timeout: float = 600.0,
         container_id: str | None = None,
+        startup_timeout: float = DEFAULT_DAEMON_STARTUP_TIMEOUT,
     ) -> tuple[str | None, str]:
         """Poll GET /status until the daemon reports scenario completion.
 
         The daemon writes ``daemon_status.json`` with its progress:
         ``{"status": "running"|"complete"|"stopped"|"error", "turn": N,
-        "nb_turns": M, "last_response": "..."}``.
+        "nb_turns": M, "last_response": "..."}``, plus ``"error"`` with the
+        reason when it stops because it cannot run the scenario.
 
-        The adapter serves it via ``GET /status``.  This method polls
-        until ``status`` is a terminal value or *timeout* expires.
+        The adapter serves it via ``GET /status``, answering
+        ``{"status": "waiting"}`` until the file exists.  This method polls
+        until ``status`` is a terminal value or *timeout* expires.  If the
+        adapter still answers ``"waiting"`` after *startup_timeout*, the
+        daemon never started and polling stops early.
 
         Returns ``(agent_response, daemon_status)`` where *daemon_status*
         is the last observed status string (``"complete"``, ``"error"``,
-        ``"timeout"``, etc.).
+        ``"timeout"``, ``"daemon_missing"``, etc.).
         """
         deadline = time.monotonic() + timeout
         activity_deadline = time.monotonic() + activity_timeout
+        startup_deadline = time.monotonic() + startup_timeout
+        daemon_reported = False
         last_turn = -1
         last_num_events = -1
         last_response: str | None = None
@@ -721,12 +756,15 @@ class ContainerRunner:
 
         def observe_status(data: dict[str, Any], *, source: str) -> str:
             nonlocal activity_deadline
+            nonlocal daemon_reported
             nonlocal daemon_status
             nonlocal last_num_events
             nonlocal last_response
             nonlocal last_turn
 
             daemon_status = data.get("status", "waiting")
+            if daemon_status != "waiting":
+                daemon_reported = True
             turn = data.get("turn", 0)
             nb_turns = data.get("nb_turns", 1)
             num_events = data.get("num_events", 0)
@@ -767,6 +805,17 @@ class ContainerRunner:
                 daemon_status = observe_status(data, source="adapter")
                 if daemon_status in _TERMINAL_DAEMON_STATUSES:
                     return last_response, daemon_status
+                if (
+                    daemon_status == "waiting"
+                    and not daemon_reported
+                    and time.monotonic() > startup_deadline
+                ):
+                    logger.warning(
+                        "Adapter is up but gaia2-eventd wrote no status for "
+                        "%.0fs — it probably failed to start (see eventd.log)",
+                        startup_timeout,
+                    )
+                    return last_response, _DAEMON_MISSING
 
             except Exception as exc:
                 consecutive_poll_failures += 1
@@ -796,6 +845,19 @@ class ContainerRunner:
 
         logger.warning("Timed out waiting for daemon completion after %ds", timeout)
         return last_response, "timeout"
+
+    @staticmethod
+    def _daemon_error(daemon_status: Mapping[str, Any] | None) -> str | None:
+        """Return the reason a daemon gave for stopping with ``status="error"``.
+
+        gaia2-eventd records it in ``daemon_status.json`` when it cannot run
+        the scenario at all (e.g. its setup failed), so nothing will happen
+        until the activity timeout.
+        """
+        if not daemon_status or daemon_status.get("status") != "error":
+            return None
+        error = daemon_status.get("error")
+        return str(error) if error else None
 
     @staticmethod
     def _read_daemon_status_file(path: Path) -> dict[str, Any] | None:

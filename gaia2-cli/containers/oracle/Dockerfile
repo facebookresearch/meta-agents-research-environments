@@ -12,6 +12,11 @@
 #   podman run --rm --network=host \
 #     -v "$SCENARIO:/var/gaia2/custom_scenario.json:ro,z" \
 #     localhost/gaia2-oracle:latest
+#
+# Files from the build context are copied with an explicit numeric --chmod:
+# COPY keeps the checkout's modes, and a checkout made under a restrictive
+# umask (0007 gives 0660 files) would leave them unreadable to the gaia2 and
+# agent users. podman/buildah 1.23 accept numeric modes only.
 
 ARG GAIA2_CLI_IMAGE=localhost/gaia2-cli
 ARG GAIA2_CLI_VERSION=latest
@@ -21,7 +26,7 @@ FROM debian:bookworm-slim AS gaia2-exec-builder
 RUN echo 'APT::Sandbox::User "root";' | tee -a /etc/apt/apt.conf.d/10sandbox
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
-COPY shared/gaia2-exec.c /tmp/gaia2-exec.c
+COPY --chmod=0644 shared/gaia2-exec.c /tmp/gaia2-exec.c
 RUN gcc -O2 -o /tmp/gaia2-exec /tmp/gaia2-exec.c && strip /tmp/gaia2-exec
 
 # ── Final image: gaia2-cli base + oracle adapter ──────────────────────────
@@ -60,12 +65,11 @@ RUN mkdir -p /home/agent/bin && \
     chown -R agent:agent /home/agent/bin
 
 # ── Oracle adapter + entrypoints ─────────────────────────────────────────
-COPY shared/gaia2_adapter_base.py /opt/gaia2_adapter_base.py
-COPY containers/oracle/gaia2_oracle_adapter.py /opt/gaia2_oracle_adapter.py
-COPY containers/oracle/gaia2-init-entrypoint.sh /opt/gaia2-init-entrypoint.sh
-COPY containers/oracle/entrypoint.sh /opt/entrypoint.sh
-
-RUN chmod +x /opt/gaia2-init-entrypoint.sh /opt/entrypoint.sh
+COPY --chmod=0644 shared/gaia2_adapter_base.py /opt/gaia2_adapter_base.py
+COPY --chmod=0644 shared/gaia2-tls-env.sh /opt/gaia2-tls-env.sh
+COPY --chmod=0644 containers/oracle/gaia2_oracle_adapter.py /opt/gaia2_oracle_adapter.py
+COPY --chmod=0755 containers/oracle/gaia2-init-entrypoint.sh /opt/gaia2-init-entrypoint.sh
+COPY --chmod=0755 containers/oracle/entrypoint.sh /opt/entrypoint.sh
 
 ENTRYPOINT []
 CMD ["/usr/bin/bash", "/opt/gaia2-init-entrypoint.sh"]

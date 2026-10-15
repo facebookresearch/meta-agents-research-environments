@@ -413,3 +413,43 @@ class TestWriteAuiEventSimT:
         event = json.loads(events_path.read_text().strip())
         assert "sim_t" not in event
         assert event["fn"] == "send_message_to_agent"
+
+
+class TestStatusRoute:
+    """GET /status hands daemon_status.json to the runner unchanged.
+
+    gaia2-eventd records why it stopped in an "error" field; the runner can
+    only fail the run with that reason if the adapter passes it through.
+    """
+
+    @staticmethod
+    def _serve_status(state_dir) -> tuple[str, dict]:
+        import json
+
+        writer = mock.MagicMock()
+        with mock.patch.object(gaia2_adapter_base, "STATE_DIR", str(state_dir)):
+            asyncio.run(gaia2_adapter_base.handle_status(writer))
+        raw = b"".join(c.args[0] for c in writer.write.call_args_list).decode()
+        head, _, body = raw.partition("\r\n\r\n")
+        return head.splitlines()[0], json.loads(body)
+
+    def test_error_status_is_passed_through(self, tmp_path) -> None:
+        import json
+
+        status = {
+            "status": "error",
+            "turn": 0,
+            "nb_turns": 1,
+            "num_events": 0,
+            "error": "gaia2-eventd setup failed: FileNotFoundError: [Errno 2] "
+            "No such file or directory (at ssl.py:707 in create_default_context)",
+        }
+        (tmp_path / "daemon_status.json").write_text(json.dumps(status))
+
+        assert self._serve_status(tmp_path) == ("HTTP/1.1 200 OK", status)
+
+    def test_missing_status_file_reports_waiting(self, tmp_path) -> None:
+        assert self._serve_status(tmp_path) == (
+            "HTTP/1.1 200 OK",
+            {"status": "waiting"},
+        )

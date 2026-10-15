@@ -28,6 +28,10 @@ set -eo pipefail
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
+# shellcheck disable=SC1091
+. /opt/gaia2-tls-env.sh
+sanitize_tls_env
+
 CUSTOM_SCENARIO="${GAIA2_SCENARIO:-/var/gaia2/custom_scenario.json}"
 ADAPTER_PORT="${GAIA2_ADAPTER_PORT:-8090}"
 
@@ -107,9 +111,12 @@ if [ "${GAIA2_DAEMON_DISABLE:-0}" != "1" ] && [ -f "$CUSTOM_SCENARIO" ]; then
     chmod 644 /tmp/faketime.rc
 
     echo "[gaia2-init] Starting gaia2-eventd as gaia2 user..." >&2
+    # The judge needs no model prices, and litellm would otherwise fetch them
+    # over HTTPS while it is being imported.
     su -s /usr/bin/bash gaia2 -c "
         export PATH=/usr/local/bin:/usr/bin:/bin
         export GAIA2_STATE_DIR=/var/gaia2/state
+        export LITELLM_LOCAL_MODEL_COST_MAP=True
         ${GAIA2_JUDGE_FINAL_TURN:+export GAIA2_JUDGE_FINAL_TURN='$GAIA2_JUDGE_FINAL_TURN'}
         /usr/local/bin/gaia2-eventd \
             --scenario '$CUSTOM_SCENARIO' \

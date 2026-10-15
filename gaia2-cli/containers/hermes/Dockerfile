@@ -12,6 +12,11 @@
 # Hermes is cloned from GitHub at build time (pinned tag).
 # The runtime is split: the gaia2 adapter owns HTTP, the Hermes worker owns
 # the AIAgent and connects over a Unix socket.
+#
+# Files from the build context are copied with an explicit numeric --chmod:
+# COPY keeps the checkout's modes, and a checkout made under a restrictive
+# umask (0007 gives 0660 files) would leave them unreadable to the gaia2 and
+# agent users. podman/buildah 1.23 accept numeric modes only.
 
 ARG GAIA2_CLI_IMAGE=localhost/gaia2-cli
 ARG GAIA2_CLI_VERSION=latest
@@ -23,7 +28,7 @@ FROM debian:bookworm-slim AS gaia2-exec-builder
 RUN echo 'APT::Sandbox::User "root";' | tee -a /etc/apt/apt.conf.d/10sandbox
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
-COPY shared/gaia2-exec.c /tmp/gaia2-exec.c
+COPY --chmod=0644 shared/gaia2-exec.c /tmp/gaia2-exec.c
 RUN gcc -O2 -o /tmp/gaia2-exec /tmp/gaia2-exec.c && strip /tmp/gaia2-exec
 
 # ── Final image: gaia2-cli base + Hermes agent ────────────────────────
@@ -112,13 +117,12 @@ RUN printf '#!/usr/bin/bash\nif [ -f /tmp/faketime.rc ]; then\n  export LD_PRELO
     cp /home/agent/bin/bash /home/agent/bin/sh
 
 # ── Adapter + entrypoint ─────────────────────────────────────────────────
-COPY shared/gaia2_adapter_base.py /opt/gaia2_adapter_base.py
-COPY shared/render_agent_prompt.py /opt/render_agent_prompt.py
-COPY shared/AGENTS_TEMPLATE.md /opt/AGENTS_TEMPLATE.md
-COPY containers/hermes/gaia2_adapter.py /opt/gaia2_adapter.py
-COPY containers/hermes/hermes_worker.py /opt/hermes_worker.py
-COPY containers/hermes/entrypoint.sh /opt/entrypoint.sh
-RUN chmod +x /opt/entrypoint.sh
+COPY --chmod=0644 shared/gaia2_adapter_base.py /opt/gaia2_adapter_base.py
+COPY --chmod=0644 shared/render_agent_prompt.py /opt/render_agent_prompt.py
+COPY --chmod=0644 shared/AGENTS_TEMPLATE.md /opt/AGENTS_TEMPLATE.md
+COPY --chmod=0644 containers/hermes/gaia2_adapter.py /opt/gaia2_adapter.py
+COPY --chmod=0644 containers/hermes/hermes_worker.py /opt/hermes_worker.py
+COPY --chmod=0755 containers/hermes/entrypoint.sh /opt/entrypoint.sh
 
 ENV HOME=/home/agent
 
@@ -130,8 +134,8 @@ ENV PATH="/home/agent/bin"
 
 # ── Entrypoint ─────────────────────────────────────────────────────────
 USER root
-COPY containers/hermes/gaia2-init-entrypoint.sh /opt/gaia2-init-entrypoint.sh
-RUN chmod +x /opt/gaia2-init-entrypoint.sh
+COPY --chmod=0644 shared/gaia2-tls-env.sh /opt/gaia2-tls-env.sh
+COPY --chmod=0755 containers/hermes/gaia2-init-entrypoint.sh /opt/gaia2-init-entrypoint.sh
 
 ENTRYPOINT []
 CMD ["/usr/bin/bash", "/opt/gaia2-init-entrypoint.sh"]

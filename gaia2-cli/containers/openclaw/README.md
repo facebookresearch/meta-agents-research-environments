@@ -100,7 +100,8 @@ These are the endpoints the runner talks to:
 - `GET /messages?after=<seq>` polls buffered assistant responses
 - `GET /events` streams responses over SSE
 - `GET /health` reports connection status to the gateway
-- `GET /status` reports daemon progress
+- `GET /status` reports daemon progress, and in `error` why the daemon
+  stopped when it could not run the scenario
 
 Example manual probe:
 
@@ -148,11 +149,14 @@ If you are onboarding a new external endpoint:
 
 At runtime the container does this:
 
-1. `gaia2-init-entrypoint.sh` initializes scenario state and renders the prompt.
+1. `gaia2-init-entrypoint.sh` replaces or drops CA bundle variables that name
+   files unreadable in the container (`/opt/gaia2-tls-env.sh`), then
+   initializes scenario state and renders the prompt.
    In sequential runs the runner copies the carried agent home and app state in
    before the container starts, and this step lays the carried app state over
    the fresh one.
-2. `gaia2-eventd` starts as `gaia2`
+2. `gaia2-eventd` starts as `gaia2`, with `LITELLM_LOCAL_MODEL_COST_MAP=True`
+   so that loading the judge does not fetch litellm's model price map
 3. `gaia2_adapter.py` starts as `gaia2`
 4. optional `tls_proxy.py` starts as `root` when faketime is active
 5. `entrypoint.sh` starts the OpenClaw gateway as `agent`
@@ -198,5 +202,8 @@ Common pitfalls:
 - if the gateway never comes up, inspect `/tmp/entrypoint.log`
 - if the agent is healthy but the run never finishes, inspect
   `/tmp/gaia2-eventd.log` for missing turn boundaries
+- if a run fails with `Daemon error: gaia2-eventd setup failed: …`, the daemon
+  died before it sent the task; the full traceback is in
+  `/tmp/gaia2-eventd.log` (`eventd.log` in the artifact directory)
 - if outbound HTTPS fails only under faketime, check the TLS proxy path and the
   host-side proxy/CA wiring from the runner

@@ -664,3 +664,106 @@ class TestFaketimeAdvancement:
 
         # Should not raise
         d._advance_time()
+
+
+# ---------------------------------------------------------------------------
+# Fatal errors reach daemon_status.json (the runner reads it via GET /status)
+# ---------------------------------------------------------------------------
+
+
+def _read_status(state_dir):
+    return json.loads((state_dir / "daemon_status.json").read_text())
+
+
+class TestFatalErrorStatus:
+    """A daemon that cannot run the scenario says so instead of going quiet.
+
+    Nothing delivers the task once gaia2-eventd is gone, so without a
+    terminal status the runner waits out its 600 s activity timeout.
+    """
+
+    def test_setup_failure_writes_error_status_and_exits(self, tmp_path, monkeypatch):
+        import logging
+
+        from click.testing import CliRunner
+        from gaia2_cli.daemon import eventd
+
+        # main() adds a file handler for <state-dir>/eventd.log; drop it after.
+        daemon_logger = logging.getLogger(eventd.__name__)
+        monkeypatch.setattr(daemon_logger, "handlers", list(daemon_logger.handlers))
+        monkeypatch.setattr(daemon_logger, "level", daemon_logger.level)
+        state_dir = tmp_path / "state"
+        state_dir.mkdir()
+        scenario = tmp_path / "scenario.json"
+        scenario.write_text("{}")
+
+        def failing_setup(self):
+            # What litellm 1.105 raises at import when SSL_CERT_FILE is missing.
+            raise FileNotFoundError(2, "No such file or directory")
+
+        monkeypatch.setattr(eventd.Gaia2EventDaemon, "setup", failing_setup)
+        monkeypatch.setattr(
+            eventd.Gaia2EventDaemon,
+            "run",
+            lambda self: pytest.fail("run() must not start after setup failed"),
+        )
+
+        result = CliRunner().invoke(
+            eventd.main,
+            ["--scenario", str(scenario), "--state-dir", str(state_dir)],
+        )
+
+        assert result.exit_code == 1
+        status = _read_status(state_dir)
+        assert status["status"] == "error"
+        assert status["error"].startswith(
+            "gaia2-eventd setup failed: FileNotFoundError: "
+            "[Errno 2] No such file or directory (at test_eventd.py:"
+        )
+        assert status["error"].endswith(" in failing_setup)")
+
+    def test_unavailable_adapter_writes_error_status(self, daemon, monkeypatch):
+        daemon.notify_url = "http://127.0.0.1:8090"
+        daemon._channel = object()
+        monkeypatch.setattr(daemon, "_wait_for_notify_url", lambda: False)
+
+        daemon.run()
+
+        status = _read_status(daemon.state_dir)
+        assert status["status"] == "error"
+        assert "http://127.0.0.1:8090" in status["error"]
+        assert "task was not sent" in status["error"]
+
+    def test_crash_while_running_reports_the_exception(self, daemon, monkeypatch):
+        daemon._channel = object()
+
+        def crash():
+            raise KeyError("turn_idx")
+
+        monkeypatch.setattr(daemon, "_run_file", crash)
+
+        daemon.run()
+
+        status = _read_status(daemon.state_dir)
+        assert status["status"] == "error"
+        assert status["error"].startswith(
+            "gaia2-eventd crashed: KeyError: 'turn_idx' (at test_eventd.py:"
+        )
+        assert status["error"].endswith(" in crash)")
+
+    def test_long_errors_are_truncated(self, daemon):
+        daemon.shutdown("error", error="x" * 2000)
+
+        assert len(_read_status(daemon.state_dir)["error"]) == 500
+
+    def test_normal_statuses_carry_no_error_field(self, daemon):
+        daemon._write_status("running")
+        assert "error" not in _read_status(daemon.state_dir)
+
+        daemon.shutdown("error")  # e.g. idle timeout: no fatal reason
+        assert _read_status(daemon.state_dir) == {
+            "status": "error",
+            "turn": 0,
+            "nb_turns": 1,
+            "num_events": 0,
+        }

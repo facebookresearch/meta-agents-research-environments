@@ -24,6 +24,9 @@
 #   FAKETIME             — simulated start time (e.g., "2025-09-01 07:00:00")
 #   OPENCLAW_CONTEXT_WINDOW — optional context window override (tokens)
 #   API_KEY / provider-specific keys — forwarded to the agent runtime
+#   SSL_CERT_FILE / REQUESTS_CA_BUNDLE / CURL_CA_BUNDLE / SSL_CERT_DIR /
+#   NODE_EXTRA_CA_CERTS — kept only when they name a bundle readable in the
+#                          container (see /opt/gaia2-tls-env.sh)
 #
 # Sequential runs: before start, the runner copies the previous scenario's
 # /home/agent and app state (into $CARRIED_STATE_DIR) into the container.
@@ -31,6 +34,9 @@
 set -eo pipefail
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+# shellcheck disable=SC1091
+. /opt/gaia2-tls-env.sh
 
 SCENARIO_PATH="${GAIA2_SCENARIO:-/var/gaia2/custom_scenario.json}"
 ADAPTER_PORT="${GAIA2_ADAPTER_PORT:-8090}"
@@ -169,10 +175,13 @@ start_eventd() {
     prepare_faketime_file
 
     echo "[gaia2-init] Starting gaia2-eventd as gaia2 user..." >&2
+    # The judge needs no model prices, and litellm would otherwise fetch them
+    # over HTTPS while it is being imported.
     # shellcheck disable=SC2016
     su -s /usr/bin/bash gaia2 -c "
         export PATH=/usr/local/bin:/usr/bin:/bin
         export GAIA2_STATE_DIR='$STATE_DIR'
+        export LITELLM_LOCAL_MODEL_COST_MAP=True
         ${GAIA2_JUDGE_FINAL_TURN:+export GAIA2_JUDGE_FINAL_TURN='$GAIA2_JUDGE_FINAL_TURN'}
         ${http_proxy:+export http_proxy='$http_proxy'}
         ${https_proxy:+export https_proxy='$https_proxy'}
@@ -320,6 +329,7 @@ exec_agent_entrypoint() {
 
 
 main() {
+    sanitize_tls_env
     claim_agent_home
     init_state
     start_eventd

@@ -655,6 +655,184 @@ class TestDaemonStatusFallback:
         assert result["daemon_status"] == {}
 
 
+class TestDaemonFatalError:
+    """A daemon that cannot run the scenario fails the run in seconds."""
+
+    _SETUP_ERROR = (
+        "gaia2-eventd setup failed: FileNotFoundError: "
+        "[Errno 2] No such file or directory (at ssl.py:707 in create_default_context)"
+    )
+
+    def _status_response(self, data: dict) -> MagicMock:
+        response = MagicMock()
+        response.json.return_value = data
+        return response
+
+    def test_poll_returns_as_soon_as_daemon_reports_error(self) -> None:
+        runner = _make_runner()
+        data = {
+            "status": "error",
+            "turn": 0,
+            "nb_turns": 1,
+            "num_events": 0,
+            "error": self._SETUP_ERROR,
+        }
+        runner._local_session.get = MagicMock(return_value=self._status_response(data))
+
+        agent_response, daemon_status = runner._poll_for_response(
+            "http://127.0.0.1:8090", timeout=600, interval=0
+        )
+
+        assert (agent_response, daemon_status) == (None, "error")
+        assert runner._local_session.get.call_count == 1
+        assert runner._last_daemon_status["error"] == self._SETUP_ERROR
+
+    @staticmethod
+    def _clocked_get(statuses, step: float):
+        """A fake GET /status that advances a fake clock by *step* per poll."""
+        clock = {"now": 0.0}
+
+        def get(*_args, **_kwargs):
+            clock["now"] += step
+            response = MagicMock()
+            response.json.return_value = next(statuses)
+            return response
+
+        return get, lambda: clock["now"]
+
+    def test_poll_gives_up_when_daemon_never_writes_status(self) -> None:
+        runner = _make_runner()
+        polls = iter([{"status": "waiting"}] * 10)
+        get, now = self._clocked_get(polls, step=61.0)
+        runner._local_session.get = MagicMock(side_effect=get)
+
+        with patch("gaia2_runner.runner.time") as mock_time:
+            mock_time.monotonic.side_effect = now
+            agent_response, daemon_status = runner._poll_for_response(
+                "http://127.0.0.1:8090", timeout=600, interval=0
+            )
+
+        assert (agent_response, daemon_status) == (None, "daemon_missing")
+        assert runner._local_session.get.call_count == 2  # at 61 s and 122 s
+
+    def test_poll_keeps_waiting_once_daemon_has_reported(self) -> None:
+        """A slow agent is not a dead daemon: no startup cut-off after "running"."""
+        runner = _make_runner()
+        polls = iter(
+            [
+                {"status": "running", "turn": 0, "nb_turns": 1, "num_events": 0},
+                {"status": "waiting"},  # status file briefly unreadable
+                {"status": "complete", "turn": 1, "nb_turns": 1, "num_events": 3},
+            ]
+        )
+        get, now = self._clocked_get(polls, step=100.0)
+        runner._local_session.get = MagicMock(side_effect=get)
+
+        with patch("gaia2_runner.runner.time") as mock_time:
+            mock_time.monotonic.side_effect = now
+            _, daemon_status = runner._poll_for_response(
+                "http://127.0.0.1:8090", timeout=600, interval=0
+            )
+
+        assert daemon_status == "complete"
+
+    def test_run_scenario_reports_daemon_error_message(self, tmp_path: Path) -> None:
+        """Before: "Agent produced no response and no events" after 600 s."""
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        launcher = _mock_launcher()
+        launcher.exec.return_value = ""  # empty events.jsonl
+        runner = _make_runner(launcher)
+        data = {
+            "status": "error",
+            "turn": 0,
+            "nb_turns": 1,
+            "num_events": 0,
+            "error": self._SETUP_ERROR,
+        }
+        runner._local_session.get = MagicMock(return_value=self._status_response(data))
+
+        with (
+            patch.object(runner, "_extract_trace_file"),
+            patch.object(runner, "_extract_daemon_logs"),
+        ):
+            result = runner.run_scenario(str(scenario_path))
+
+        assert result["success"] is None
+        assert result["error"] == (
+            f"Daemon error: {self._SETUP_ERROR} (0 tool calls; see eventd.log)"
+        )
+        assert result["daemon_status"]["error"] == self._SETUP_ERROR
+
+    def test_run_scenario_reports_missing_daemon(self, tmp_path: Path) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        runner = _make_runner()
+
+        with (
+            patch.object(
+                runner, "_poll_for_response", return_value=(None, "daemon_missing")
+            ),
+            patch.object(runner, "_extract_trace_file"),
+            patch.object(runner, "_extract_daemon_logs"),
+        ):
+            result = runner.run_scenario(str(scenario_path))
+
+        assert result["success"] is None
+        assert result["error"].startswith(
+            "Daemon error: gaia2-eventd wrote no status within 120s"
+        )
+
+    def test_daemon_error_wins_over_scenario_timeout(self, tmp_path: Path) -> None:
+        """An infrastructure failure is an error, never a model FAIL.
+
+        Without a daemon error the same timeout is a FAIL
+        (TestScenarioTimeout.test_duration_timeout_is_fail).
+        """
+        scenario_path = _make_scenario(
+            tmp_path, duration=330.0, events=[_make_user_event()]
+        )
+        runner = _make_runner()
+
+        def fake_poll(url, timeout=600, **kwargs):
+            runner._last_daemon_status = {"status": "error", "error": "boom"}
+            return None, "error"
+
+        with (
+            patch.object(runner, "_poll_for_response", side_effect=fake_poll),
+            patch.object(runner, "_collect_events", return_value=("", None)),
+            patch.object(runner, "_extract_trace_file"),
+            patch.object(runner, "_extract_daemon_logs"),
+            patch("gaia2_runner.runner.time") as mock_time,
+        ):
+            mock_time.monotonic.side_effect = [1000.0, 1000.0 + 1200]
+            result = runner.run_scenario(str(scenario_path), response_timeout=1200)
+
+        assert result["success"] is None
+        assert result["error"].startswith("Daemon error: boom")
+
+    def test_status_without_error_keeps_existing_message(self, tmp_path: Path) -> None:
+        scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])
+        runner = _make_runner()
+
+        def fake_poll(url, timeout=600, **kwargs):
+            runner._last_daemon_status = {"status": "error", "num_events": 2}
+            return None, "error"
+
+        with (
+            patch.object(runner, "_poll_for_response", side_effect=fake_poll),
+            patch.object(runner, "_collect_events", return_value=("x\n", None)),
+            patch.object(runner, "_extract_trace_file"),
+            patch.object(runner, "_extract_daemon_logs"),
+        ):
+            result = runner.run_scenario(str(scenario_path))
+
+        assert result["error"].startswith("Daemon error: no turn boundary detected")
+
+    def test_empty_run_without_daemon_error_still_raises(self) -> None:
+        runner = _make_runner()
+        with pytest.raises(RuntimeError, match="no response and no events"):
+            runner._collect_events("container-123", None)
+
+
 class TestBuildContainerEnv:
     def test_uses_required_judge_config_without_judge_type(self) -> None:
         runner = _make_runner()

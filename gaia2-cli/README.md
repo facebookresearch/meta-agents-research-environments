@@ -46,6 +46,13 @@ make gaia2-hermes
 make gaia2-oc
 ```
 
+The base image installs the exact Python package versions listed in
+[`cli/image-constraints.txt`](cli/image-constraints.txt), so rebuilding a
+commit reproduces its judge stack; the file's header says how to refresh
+them. Every file is copied into the images with an explicit mode, so a
+checkout made under a restrictive umask (such as `0007`) still builds images
+whose `gaia2` and `agent` users can read what they need.
+
 ### 3. Pick a ready-made config
 
 - [`runner/examples/quickstart_hermes.toml`](runner/examples/quickstart_hermes.toml) if you want the same Anthropic `search` pass@1 setup on Hermes
