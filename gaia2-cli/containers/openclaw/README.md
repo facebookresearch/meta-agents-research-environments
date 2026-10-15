@@ -126,6 +126,7 @@ Common runtime env vars:
 | `OPENCLAW_FORCE_RECONFIG` | Required for direct runs |
 | `OPENCLAW_CONTEXT_WINDOW` | Optional context window override in tokens (the runner's `context_window`) |
 | `GAIA2_TRACE_FILE` | Optional raw trace JSONL output |
+| `GAIA2_OPENCLAW_FORWARD_REASONING` | `0` stops `launch.mjs` handing non-streamed `message.reasoning` to OpenClaw (default: forwarded). OpenClaw stores, re-sends and context-guard-counts it even when the chat template drops it; the trace keeps it |
 
 Provider-specific behavior:
 

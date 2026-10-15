@@ -44,6 +44,22 @@ const googleRequest = classifyLlmRequest(
 assert.equal(googleRequest.isGoogleGenerativeAi, true);
 assert.equal(googleRequest.isLLMCall, true);
 
+// GAIA2_OPENCLAW_FORWARD_REASONING (own import: keeps this hunk clear of the
+// import block, which downstream branches rewrite).
+import { forwardedReasoning } from "./launch_request_utils.mjs";
+
+const thinkingMsg = { role: "assistant", reasoning: "step 1", content: "" };
+assert.equal(forwardedReasoning(thinkingMsg, {}), "step 1");
+assert.equal(forwardedReasoning(thinkingMsg, undefined), "step 1");
+assert.equal(forwardedReasoning(thinkingMsg, { GAIA2_OPENCLAW_FORWARD_REASONING: "1" }), "step 1");
+assert.equal(forwardedReasoning(thinkingMsg, { GAIA2_OPENCLAW_FORWARD_REASONING: "" }), "step 1");
+for (const off of ["0", "false", "OFF", " no "]) {
+  assert.equal(forwardedReasoning(thinkingMsg, { GAIA2_OPENCLAW_FORWARD_REASONING: off }), "");
+}
+assert.equal(forwardedReasoning({ role: "assistant", content: "hi" }, {}), "");
+assert.equal(forwardedReasoning({ role: "assistant", reasoning: null }, {}), "");
+assert.equal(forwardedReasoning(undefined, {}), "");
+
 const openaiResponsesRequest = classifyLlmRequest(
   "https://provider.example/v1/responses",
   { method: "POST" }

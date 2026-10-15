@@ -9,6 +9,17 @@ export function isGoogleGenerativeAiCall(method, urlStr) {
   );
 }
 
+// OpenClaw's openai-completions provider turns a forwarded `delta.reasoning`
+// into a thinking block, re-sends it on every later request and counts it in
+// its tool-result context guard, even when the served chat template never
+// renders past reasoning. GAIA2_OPENCLAW_FORWARD_REASONING=0 (or false/off/no)
+// keeps it away from OpenClaw; the raw response and trace still carry it.
+export function forwardedReasoning(msg, env) {
+  const flag = String(env?.GAIA2_OPENCLAW_FORWARD_REASONING ?? "").trim().toLowerCase();
+  if (["0", "false", "off", "no"].includes(flag)) return "";
+  return typeof msg?.reasoning === "string" ? msg.reasoning : "";
+}
+
 export function classifyLlmRequest(url, init) {
   const urlStr = typeof url === "string" ? url : url?.toString?.() || "";
   const method = init?.method?.toUpperCase() || "";

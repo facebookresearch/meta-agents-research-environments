@@ -65,6 +65,12 @@ function sseChunk(meta, choices) {
 // After we strip stream from the request for OpenAI-compatible backends, we
 // wrap the non-streaming JSON response as SSE ChatCompletionChunk events.
 
+// Own import, kept here so it does not touch the import block above.
+import { forwardedReasoning } from "./launch_request_utils.mjs";
+if (!forwardedReasoning({ reasoning: "x" }, process.env)) {
+  console.error("[launch.mjs] reasoning not forwarded to OpenClaw (GAIA2_OPENCLAW_FORWARD_REASONING=0)");
+}
+
 function completionToSSE(json) {
   const meta = {
     id: json.id || "chatcmpl-" + Date.now(),
@@ -78,8 +84,9 @@ function completionToSSE(json) {
     const idx = choice.index || 0;
     const hasToolCalls = Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
     sse += sseChunk(meta, [{ index: idx, finish_reason: null, delta: { role: msg.role || "assistant", content: "" } }]);
-    if (msg.reasoning) {
-      sse += sseChunk(meta, [{ index: idx, finish_reason: null, delta: { reasoning: msg.reasoning } }]);
+    const reasoning = forwardedReasoning(msg, process.env);
+    if (reasoning) {
+      sse += sseChunk(meta, [{ index: idx, finish_reason: null, delta: { reasoning } }]);
     }
     // Some OpenAI-compatible backends return assistant text alongside tool
     // calls. Suppress that mixed text so OpenClaw does not end the turn
