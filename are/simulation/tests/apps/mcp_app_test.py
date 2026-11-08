@@ -11,6 +11,7 @@ from are.simulation.apps.app import ToolType
 from are.simulation.apps.mcp.mcp_app import MCPApp
 from are.simulation.config import ARE_SIMULATION_ROOT
 from are.simulation.tool_utils import ToolAttributeName
+from are.simulation.types import OperationType
 from are.simulation.utils import time_limit
 
 EXTRA_DESCRIPTION = " (note: this tool does not work with negative numbers)."
@@ -20,6 +21,13 @@ SERVER_SCRIPT_PATH = str(
     / "scenarios"
     / "scenario_mcp_demo"
     / "math_server.py"
+)
+TODO_SERVER_SCRIPT_PATH = str(
+    ARE_SIMULATION_ROOT
+    / "simulation"
+    / "scenarios"
+    / "scenario_mcp_demo"
+    / "todo_server.py"
 )
 
 
@@ -122,6 +130,39 @@ class MCPAppTest(unittest.TestCase):
                 self.assertIn("Open World: No", description)
             finally:
                 # Clean up resources
+                mcp_app.close()
+
+    def test_mcp_app_registers_write_tools_as_write_events(self):
+        """A tool with readOnlyHint=False is a WRITE; read-only tools stay READ."""
+        with time_limit(20):
+            mcp_app = MCPApp(
+                name="TodoApp",
+                server_command="python",
+                server_args=[TODO_SERVER_SCRIPT_PATH],
+            )
+
+            try:
+                tools = mcp_app.get_tools_with_attribute(
+                    ToolAttributeName.APP, ToolType.APP
+                )
+                tools_dict = {tool.name: tool for tool in tools}
+
+                # todo_server.py marks add_todo readOnlyHint=False.
+                add_todo = tools_dict["TodoApp__add_todo"]
+                self.assertTrue(add_todo.write_operation)
+                self.assertEqual(
+                    add_todo.function.__operation_type__,  # type: ignore
+                    OperationType.WRITE,
+                )
+
+                # ...and list_todos readOnlyHint=True.
+                list_todos = tools_dict["TodoApp__list_todos"]
+                self.assertFalse(list_todos.write_operation)
+                self.assertEqual(
+                    list_todos.function.__operation_type__,  # type: ignore
+                    OperationType.READ,
+                )
+            finally:
                 mcp_app.close()
 
 
