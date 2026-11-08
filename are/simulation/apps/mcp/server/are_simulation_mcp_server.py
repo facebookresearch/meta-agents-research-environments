@@ -163,21 +163,11 @@ class ARESimulationToolManager(ToolManager):
         wrapper.__name__ = tool_name
         wrapper.__doc__ = tool_doc
 
-        # Create parameter info for the wrapper function
-        parameters = {}
-        required_params = []
         # Create a custom ArgModelBase for the function arguments
         field_definitions = {}
         args_with_none = set()
 
         for arg in app_tool.args:
-            parameters[arg.name] = {
-                "type": "string" if arg.arg_type == "str" else arg.arg_type,
-                "description": arg.description or "",
-            }
-            if not arg.has_default:
-                required_params.append(arg.name)
-
             # Use the type_obj directly if available, otherwise fall back to parsing the string
             python_type = arg.type_obj if arg.type_obj is not None else Any
 
@@ -226,6 +216,11 @@ class ARESimulationToolManager(ToolManager):
             __validators__={"handle_none_values": handle_none_values},
         )
 
+        # Advertise the JSON Schema of the model that validates the call, so
+        # Python types become JSON Schema types (int -> integer, str | None ->
+        # string or null) instead of being copied into "type" as-is.
+        parameters = arg_model.model_json_schema(by_alias=True)
+
         # Create FuncMetadata with our custom arg_model
         custom_metadata = FuncMetadata(arg_model=arg_model)
 
@@ -235,11 +230,7 @@ class ARESimulationToolManager(ToolManager):
             name=tool_name,
             title=tool_name,
             description=tool_doc,
-            parameters={
-                "type": "object",
-                "properties": parameters,
-                "required": required_params,
-            },
+            parameters=parameters,
             fn_metadata=custom_metadata,
             is_async=True,
             context_kwarg="_mcp_context",

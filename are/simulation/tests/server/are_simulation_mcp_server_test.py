@@ -179,6 +179,29 @@ async def test_app_initialization_and_tools_exposure(calendar_app, contacts_app)
 
 
 @pytest.mark.anyio
+async def test_tool_input_schemas_are_valid_json_schema(calendar_app, contacts_app):
+    """Every advertised inputSchema is valid JSON Schema, with JSON types."""
+    from jsonschema import Draft202012Validator
+
+    server = ARESimulationMCPServer(apps=[calendar_app, contacts_app])
+    tools = {tool.name: tool for tool in await server.mcp.list_tools()}
+
+    for tool in tools.values():
+        Draft202012Validator.check_schema(tool.inputSchema)
+
+    properties = tools["CalendarApp__add_calendar_event"].inputSchema["properties"]
+    # `title: str` stays a string; `start_datetime: str | None` allows null.
+    assert properties["title"]["type"] == "string"
+    assert {"type": "null"} in properties["start_datetime"]["anyOf"]
+
+    properties = tools["CalendarApp__get_calendar_events_from_to"].inputSchema[
+        "properties"
+    ]
+    # `offset: int` is an integer, not "int".
+    assert properties["offset"]["type"] == "integer"
+
+
+@pytest.mark.anyio
 async def test_scenario_loading():
     """
     Test that a scenario can be loaded and that the data in the MCP server
