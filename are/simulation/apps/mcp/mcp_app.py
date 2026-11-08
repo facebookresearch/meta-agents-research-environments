@@ -611,16 +611,6 @@ class MCPApp(App):
                         )
                     )
 
-            # Create a callable function that will call the MCP tool
-            def create_callable(tool_name):
-                @event_registered(operation_type=OperationType.READ)
-                def call_mcp_tool(self_instance, **kwargs):
-                    return self_instance._call_tool(tool_name, **kwargs)
-
-                return call_mcp_tool
-
-            callable_func = create_callable(name)
-
             # Determine write_operation based on annotations
             write_operation = None
             annotations_info = []  # Initialize outside the if block
@@ -684,6 +674,21 @@ class MCPApp(App):
   For example, the world of a web search tool is open, whereas that
   of a memory tool is not."""
                             )
+
+            # Create a callable function that will call the MCP tool. A tool the
+            # server marks readOnlyHint=False is registered as a WRITE, so its
+            # calls reach validation like any other app's write actions.
+            def create_callable(tool_name, operation_type):
+                @event_registered(operation_type=operation_type)
+                def call_mcp_tool(self_instance, **kwargs):
+                    return self_instance._call_tool(tool_name, **kwargs)
+
+                return call_mcp_tool
+
+            callable_func = create_callable(
+                name,
+                OperationType.WRITE if write_operation else OperationType.READ,
+            )
 
             # Append annotations to function description (moved outside the if block)
             if annotations_info:
