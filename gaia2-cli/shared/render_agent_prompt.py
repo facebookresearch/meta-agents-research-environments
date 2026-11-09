@@ -27,6 +27,23 @@ from pathlib import Path
 
 _MESSAGING_CLI_NAMES = {"messages", "chats"}
 
+# Appended only for scenarios tagged "Time". A reply to the user ends a turn,
+# and the judge grades each turn only on what the agent did before its reply,
+# so the template's advice to reply before an event occurs would leave the
+# timed steps ungraded.
+_TIME_SECTION = (
+    "\n## Timed tasks\n\n"
+    "Some steps of this task must happen at a set time or after an event. If the "
+    'user asks you to tell them something before a timed step (for example "let '
+    "me know once you've sent it\"), reply at that point; the events you are "
+    "waiting for will then reach you as notifications. Otherwise, and unlike the "
+    "Notifications advice above, do not reply until every part is done, including "
+    "the timed and conditional parts, or can no longer happen. Notifications may "
+    "arrive in this conversation while you work. To wait, run `sleep 15`, check "
+    "the time with `date`, and repeat; keep each wait short so you can react to "
+    "notifications.\n"
+)
+
 
 def render(
     scenario_path: str,
@@ -59,6 +76,10 @@ def render(
     prompt = template.replace("{{TOOL_LIST}}", tool_list)
     prompt = prompt.replace("{{MESSAGING_TOOLS}}", messaging_tools)
     prompt = prompt.replace("{{EXEC_TOOL}}", exec_tool)
+    with open(scenario_path) as f:
+        definition = (json.load(f).get("metadata") or {}).get("definition") or {}
+    if "Time" in (definition.get("tags") or []):
+        prompt += _TIME_SECTION
 
     # Write prompt
     if output_prompt:

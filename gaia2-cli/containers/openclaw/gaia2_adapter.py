@@ -25,6 +25,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -68,6 +69,15 @@ _latest_chat_delta: dict[str, str] = {}
 # Runs started by chat.send. OpenClaw also starts agent runs of its own, such
 # as the pre-compaction memory flush, whose silent finals must not end a turn.
 _own_run_ids: set[str] = set()
+# Own runs that have not finished yet. Steer mode (openclaw_config.py) folds a
+# message sent while one of them works into that run, and OpenClaw ends the
+# message's own run at once with an empty final (9-367 ms after the send).
+# _steered_sent_at keeps the send time of each such message. Its empty final is
+# dropped only within the window: if the working run had already ended, the
+# message starts a real run, which calls the model and takes longer than that.
+_running_run_ids: set[str] = set()
+_steered_sent_at: dict[str, float] = {}
+STEERED_FINAL_WINDOW_S = 2.0
 
 _pending: dict[str, asyncio.Future] = {}
 
@@ -376,6 +386,7 @@ async def _on_disconnect() -> None:
     print("[openclaw] WebSocket closed.")
     _connected = False
     _latest_chat_delta.clear()
+    _running_run_ids.clear()
 
     for _rpc_id, future in list(_pending.items()):
         if not future.done():
@@ -445,6 +456,9 @@ async def send_message(text: str) -> dict:
 
     run_id = res.get("payload", {}).get("runId", "")
     if run_id:
+        if _running_run_ids:
+            _steered_sent_at[run_id] = time.monotonic()
+        _running_run_ids.add(run_id)
         _own_run_ids.add(run_id)
     return {"run_id": run_id}
 
@@ -516,6 +530,9 @@ _on_response: Callable | None = None
 def on_backend_response(response: dict) -> None:
     state = response.get("state", "")
     run_id = response.get("run_id", response.get("runId", ""))
+    if state in ("final", "error", "aborted"):
+        _running_run_ids.discard(run_id)
+    steered_sent_at = _steered_sent_at.pop(run_id, None)
 
     # Drop OpenClaw internal responses — heartbeat acks, memory compaction
     # flushes, and empty turns that are not part of the scenario.
@@ -533,6 +550,19 @@ def on_backend_response(response: dict) -> None:
         print(
             "[gaia2-adapter] Dropped silent final from a run the adapter did not "
             f"start (runId={run_id})"
+        )
+        return
+    # The steered message is answered inside the working run. Its own empty
+    # final is not a reply; closing the turn on it would leave everything that
+    # run does afterwards out of the graded turn.
+    if (
+        state == "final"
+        and not text_preview
+        and steered_sent_at is not None
+        and time.monotonic() - steered_sent_at < STEERED_FINAL_WINDOW_S
+    ):
+        print(
+            f"[gaia2-adapter] Dropped empty final of a steered message (runId={run_id})"
         )
         return
 
