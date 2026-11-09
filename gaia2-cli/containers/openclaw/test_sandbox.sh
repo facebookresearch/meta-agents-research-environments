@@ -11,6 +11,7 @@
 #   - agent PATH is restricted
 #   - only scenario-relevant CLI tools remain in PATH
 #   - state and scenario files are not readable by the agent
+#   - judge, gaia2-eventd and adapter code is not readable by the agent
 #   - representative Gaia2 tools still work through gaia2-exec
 #   - OpenAI custom BASE_URL survives runtime env forwarding
 #
@@ -269,6 +270,14 @@ assert_fail agent "contacts state is not readable" \
     "</var/gaia2/state/contacts.json"
 assert_fail agent "events.jsonl is not readable" \
     "</var/gaia2/state/events.jsonl"
+assert_fail agent "judge prompts are not readable" \
+    '</usr/local/lib/python3.12/site-packages/gaia2_core/judge/prompts.py'
+assert_fail agent "adapter source is not readable" \
+    "</opt/gaia2_adapter_base.py"
+assert_fail agent "pip build tree is gone" \
+    "test -e /app/build"
+assert_ok root "gaia2 can still import the judge and eventd" \
+    "su -s /usr/bin/bash gaia2 -c '/usr/local/bin/python3 -c \"import gaia2_cli.judge, gaia2_cli.daemon.eventd\"'"
 assert_contains root "root can still verify contacts state exists" \
     'jq -r "keys[0]" /var/gaia2/state/contacts.json' \
     "contacts"

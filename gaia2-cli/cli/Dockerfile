@@ -41,8 +41,9 @@ COPY cli/gaia2_cli/ ./gaia2_cli/
 # Install the package
 RUN pip install --no-cache-dir ".[judge]"
 
-# Remove build source (only needed for pip install)
-RUN rm -rf /app/gaia2_cli/ /app/pyproject.toml
+# Remove build source (only needed for pip install), and pip's build tree,
+# which keeps a .py copy of every module, gaia2-eventd and the judge included
+RUN rm -rf /app/gaia2_cli/ /app/pyproject.toml /app/build /app/gaia2_cli.egg-info
 
 # Download gaia2_filesystem dataset (public, ~296 files).
 # Scenarios reference these via real_path fields; gaia2-init copies
