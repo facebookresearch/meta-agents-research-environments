@@ -124,6 +124,18 @@ def normalize_app_name(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def within_store(path: str, root: str) -> bool:
+    # Resolve strictly: realpath() stops silently where it cannot resolve (a loop,
+    # a too-long path), and open() may then reach a file outside the store.
+    while path != root and not os.path.lexists(path):  # not created yet: check parent
+        path = os.path.dirname(path)
+    try:
+        path, root = os.path.realpath(path, strict=True), os.path.realpath(root)
+    except OSError:
+        return path == root  # only the store root itself may be missing
+    return path == root or path.startswith(root + os.sep)
+
+
 def resolve_sandbox_path(path: str) -> str:
     """Resolve a cloud-drive path to a real filesystem path.
 
@@ -141,7 +153,7 @@ def resolve_sandbox_path(path: str) -> str:
 
     resolved = os.path.abspath(os.path.join(fs_root, rel))
 
-    if not (resolved == fs_root or resolved.startswith(fs_root + os.sep)):
+    if not within_store(resolved, fs_root):
         raise ValueError(f"Path escapes sandbox: {path}")
 
     return resolved

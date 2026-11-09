@@ -25,6 +25,7 @@ from gaia2_cli.shared import (
     log_action,
     set_app,
     set_log_class,
+    within_store,
 )
 
 APP_NAME = "Files"
@@ -70,7 +71,7 @@ def _validate_path(path: str) -> str:
 
     full = os.path.abspath(os.path.join(fs_root, path))
 
-    if not (full == fs_root or full.startswith(fs_root + os.sep)):
+    if not within_store(full, fs_root):
         cli_error(f"Operation not allowed outside sandbox: {path}")
 
     return full
@@ -243,7 +244,7 @@ def tree_cmd(dir_path):
             connector = "└── " if i == len(items) - 1 else "├── "
             lines.append(f"{indent}{connector}{name}")
             full = os.path.join(current_path, name)
-            if os.path.isdir(full):
+            if os.path.isdir(full) and not os.path.islink(full):
                 lines.extend(_build_tree(full, level + 1))
         return lines
 

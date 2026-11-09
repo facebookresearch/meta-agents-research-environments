@@ -637,6 +637,31 @@ def test_download_attachments(cli_env):
         assert f.read() == file_content
 
 
+def test_download_attachments_refuses_symlink_out_of_store(cli_env, tmp_path):
+    state_dir, runner = cli_env
+    state = _empty_state()
+    state["folders"]["INBOX"]["emails"] = [
+        _make_email(
+            email_id="att1",
+            attachments={"data.bin": base64.b64encode(b"x").decode()},
+            timestamp=1000.0,
+        ),
+    ]
+    seed_state(state_dir, APP, state)
+    downloads = state_dir / "filesystem" / "Downloads"
+    downloads.mkdir(parents=True)
+    outside = tmp_path / "outside.bin"  # state dir, outside the store
+    (downloads / "data.bin").symlink_to(outside)
+
+    result = runner.invoke(
+        cli,
+        ["download-attachments", "--email-id", "att1", "--path-to-save", "/Downloads"],
+    )
+    assert result.exit_code == 1
+    assert "escapes sandbox" in (result.output + (result.stderr or ""))
+    assert not outside.exists()
+
+
 # ===================================================================
 # 13. move-email: from INBOX to TRASH
 # ===================================================================

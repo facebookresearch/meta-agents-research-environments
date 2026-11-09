@@ -78,6 +78,19 @@ def fixed_time(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+def make_deep_symlink_chain(store: Path, target: Path) -> str:
+    """Short store path to *target* through real dirs nested past PATH_MAX."""
+    hop = "/".join(["d" * 200] * 4)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.chdir(store)
+        for i in range(6):
+            Path(hop).mkdir(parents=True)
+            Path(f"s{i}").symlink_to(hop)
+            mp.chdir(hop)
+        Path("X").symlink_to(target)
+    return "/s0/s1/s2/s3/s4/s5/X"
+
+
 def seed_state(state_dir: Path, app_name: str, state: dict) -> None:
     """Write a state JSON file for an app into state_dir."""
     from gaia2_cli.shared import normalize_app_name
