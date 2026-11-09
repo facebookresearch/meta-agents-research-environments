@@ -145,6 +145,21 @@ init_state() {
 }
 
 
+lock_gaia2_only_code() {
+    # The judge (prompts, checkers), gaia2-eventd and the adapter run only as
+    # gaia2, and the agent's CLI tools never import them. Owner-only rather
+    # than group-readable: a launcher that cannot use the setuid gaia2-exec
+    # may put the agent in the gaia2 group.
+    local cli core
+    cli=$(python3 -I -c 'import gaia2_cli; print(gaia2_cli.__path__[0])')
+    core=$(python3 -I -c 'import gaia2_core; print(gaia2_core.__path__[0])')
+    local paths=("$cli"/{daemon,judge,scenario} "$core"/{judge,event_loop}
+        /opt/gaia2_adapter.py /opt/gaia2_adapter_base.py)
+    chown -R gaia2:gaia2 "${paths[@]}"
+    chmod -R go-rwx "${paths[@]}"
+}
+
+
 prepare_faketime_file() {
     if [ -n "${FAKETIME:-}" ]; then
         echo "$FAKETIME" > "$FAKETIME_FILE"
@@ -322,6 +337,7 @@ exec_agent_entrypoint() {
 main() {
     claim_agent_home
     init_state
+    lock_gaia2_only_code
     start_eventd
     start_adapter
     start_tls_proxy_if_needed
