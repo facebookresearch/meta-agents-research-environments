@@ -8,7 +8,10 @@ from enum import Enum
 
 import click
 import pytest
-from conftest import read_events  # noqa: F401 (used by tests indirectly)
+from conftest import (  # noqa: F401 (used by tests indirectly)
+    make_deep_symlink_chain,
+    read_events,
+)
 from gaia2_cli.shared import (
     build_schema,
     cli_error,
@@ -17,6 +20,7 @@ from gaia2_cli.shared import (
     log_action,
     make_serializable,
     normalize_app_name,
+    resolve_sandbox_path,
     save_app_state,
     set_app,
     state_file_for_app,
@@ -262,3 +266,27 @@ def test_build_schema_returns_correct_structure():
     assert count_param["required"] is False
     assert count_param["default"] == 1
     assert count_param["description"] == "Number of greetings"
+
+
+# ---------------------------------------------------------------------------
+# resolve_sandbox_path
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_sandbox_path_symlinks(tmp_path, monkeypatch):
+    fs_root = tmp_path / "filesystem"
+    fs_root.mkdir()
+    monkeypatch.setenv("GAIA2_STATE_DIR", str(tmp_path))
+    monkeypatch.delenv("GAIA2_FS_ROOT", raising=False)
+    (tmp_path / "secret.txt").write_text("oracle")
+    (fs_root / "a.txt").write_text("a")
+    (fs_root / "in").symlink_to(fs_root / "a.txt")
+    (fs_root / "zz").symlink_to(tmp_path / "secret.txt")
+
+    assert resolve_sandbox_path("/a.txt") == str(fs_root / "a.txt")
+    assert resolve_sandbox_path("/in") == str(fs_root / "in")
+    with pytest.raises(ValueError, match="escapes sandbox"):
+        resolve_sandbox_path("/zz")
+    chain = make_deep_symlink_chain(fs_root, tmp_path)
+    with pytest.raises(ValueError, match="escapes sandbox"):
+        resolve_sandbox_path(chain + "/secret.txt")

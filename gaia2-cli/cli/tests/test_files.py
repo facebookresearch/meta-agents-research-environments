@@ -6,7 +6,13 @@
 import json
 
 import pytest
-from conftest import assert_event, make_cli_runner, parse_output, read_events
+from conftest import (
+    assert_event,
+    make_cli_runner,
+    make_deep_symlink_chain,
+    parse_output,
+    read_events,
+)
 from gaia2_cli.apps.files import cli
 
 APP = "SandboxLocalFileSystem"
@@ -381,6 +387,47 @@ def test_path_traversal_dotdot_in_middle(fs_env):
 
     result = runner.invoke(cli, ["cat", "--path", "/Documents/../../../etc/passwd"])
     assert result.exit_code == 1
+
+
+def test_symlink_out_of_store_rejected(fs_env, tmp_path):
+    fs_root, state_dir, runner = fs_env
+    _populate(fs_root)
+    (tmp_path / "secret.txt").write_text("oracle")
+    (fs_root / "zz").symlink_to(tmp_path / "secret.txt")
+    (fs_root / "out").symlink_to(tmp_path, target_is_directory=True)
+
+    for path in ["/zz", "/out/secret.txt"]:
+        result = runner.invoke(cli, ["cat", "--path", path])
+        assert result.exit_code == 1
+        assert "oracle" not in result.output
+        assert "not allowed outside sandbox" in (result.output + (result.stderr or ""))
+
+    result = runner.invoke(cli, ["tree", "--path", "/"])
+    assert result.exit_code == 0
+    assert "secret.txt" not in result.output
+
+
+def test_symlink_chain_past_path_max_rejected(fs_env, tmp_path):
+    fs_root, state_dir, runner = fs_env
+    (tmp_path / "secret.txt").write_text("oracle")
+    chain = make_deep_symlink_chain(fs_root, tmp_path)
+
+    result = runner.invoke(cli, ["cat", "--path", chain + "/secret.txt"])
+    assert result.exit_code == 1
+    assert "oracle" not in result.output
+    result = runner.invoke(cli, ["mkdir", "--path", chain + "/made"])
+    assert result.exit_code == 1
+    assert not (tmp_path / "made").exists()
+
+
+def test_symlink_inside_store_allowed(fs_env):
+    fs_root, state_dir, runner = fs_env
+    docs, _ = _populate(fs_root)
+    (fs_root / "link.txt").symlink_to(docs / "hello.txt")
+
+    result = runner.invoke(cli, ["cat", "--path", "/link.txt"])
+    assert result.exit_code == 0, result.output
+    assert result.output == "hello world"
 
 
 def test_tilde_resolves_to_home(fs_env):

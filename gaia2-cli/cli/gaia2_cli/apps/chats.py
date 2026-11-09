@@ -599,7 +599,8 @@ def download_attachment(
 
         file_data = base64.b64decode(message["attachment"])
         resolved_dir = resolve_sandbox_path(download_path)
-        full_path = os.path.join(resolved_dir, message["attachment_name"])
+        name = message["attachment_name"]
+        full_path = resolve_sandbox_path(f"{download_path}/{name}")
         os.makedirs(
             os.path.dirname(full_path) if os.path.dirname(full_path) else resolved_dir,
             exist_ok=True,

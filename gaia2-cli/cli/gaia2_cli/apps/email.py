@@ -476,7 +476,7 @@ def download_attachments(email_id: str, folder_name: str, path_to_save: str):
             resolved_dir = resolve_sandbox_path(path_to_save)
             os.makedirs(resolved_dir, exist_ok=True)
             for filename, b64_content in attachments.items():
-                full_path = os.path.join(resolved_dir, filename)
+                full_path = resolve_sandbox_path(f"{path_to_save}/{filename}")
                 with open(full_path, "wb") as f:
                     f.write(base64.b64decode(b64_content))
                 filenames.append(full_path)

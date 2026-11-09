@@ -81,6 +81,27 @@ def _make_message(sender_id, message_id, timestamp, content, **extra):
     return msg
 
 
+def test_download_attachment_refuses_symlink_out_of_store(cli_env, tmp_path):
+    state_dir, runner = cli_env
+    downloads = state_dir / "filesystem" / "Downloads"
+    downloads.mkdir(parents=True)
+    outside = tmp_path / "outside.pdf"  # state dir, outside the store
+    (downloads / "doc.pdf").symlink_to(outside)
+    msg = _make_message(
+        "u2", "m1", 1000.0, "f", attachment="eA==", attachment_name="doc.pdf"
+    )
+    conv = _make_conversation("c1", "Alice Smith", ["u1", "u2"], messages=[msg])
+    seed_state(state_dir, "Messages", _messages_state(conversations={"c1": conv}))
+    seed_state(state_dir, "Chats", _chats_state(conversations={"c1": conv}))
+    args = ["download-attachment", "--conversation-id", "c1", "--message-id", "m1"]
+
+    for app_cli in (messages_cli, chats_cli):
+        result = runner.invoke(app_cli, args + ["--download-path", "/Downloads"])
+        assert result.exit_code == 1
+        assert "escapes sandbox" in (result.output + (result.stderr or ""))
+    assert not outside.exists()
+
+
 # ---------------------------------------------------------------------------
 # Messages tests (messages_cli)
 # ---------------------------------------------------------------------------
