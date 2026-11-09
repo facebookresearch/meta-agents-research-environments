@@ -51,6 +51,8 @@ def reset_adapter_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, mock.Magic
     monkeypatch.setattr(adapter._state, "buffer_and_broadcast", buffer_mock)
     adapter._latest_chat_delta.clear()
     adapter._own_run_ids.clear()
+    adapter._running_run_ids.clear()
+    adapter._steered_sent_at.clear()
     adapter._on_response = on_response
 
     yield {
@@ -297,6 +299,84 @@ class TestBackendResponse:
 
         assert result == {"run_id": "run-9"}
         assert "run-9" in adapter._own_run_ids
+
+    @staticmethod
+    def _send(monkeypatch: pytest.MonkeyPatch, run_id: str) -> None:
+        async def fake_send_rpc(method: str, params: dict) -> dict:
+            return {"ok": True, "payload": {"runId": run_id}}
+
+        monkeypatch.setattr(adapter, "_connected", True)
+        monkeypatch.setattr(adapter, "_ws", object())
+        monkeypatch.setattr(adapter, "_send_rpc", fake_send_rpc)
+        asyncio.run(adapter.send_message("text"))
+
+    def test_empty_final_of_a_message_sent_mid_run_is_dropped(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        reset_adapter_state: dict[str, mock.MagicMock],
+    ) -> None:
+        """Steer mode folds the notification into the working run."""
+        self._send(monkeypatch, "task-run")
+        self._send(monkeypatch, "notification-run")
+
+        adapter.on_backend_response(
+            {"state": "final", "run_id": "notification-run", "message": ""}
+        )
+        reset_adapter_state["aui"].assert_not_called()
+
+        adapter.on_backend_response(
+            {"state": "final", "run_id": "task-run", "message": "All done."}
+        )
+        reset_adapter_state["aui"].assert_called_once_with(
+            "send_message_to_user", "All done."
+        )
+
+    def test_empty_final_of_a_message_sent_after_the_run_ended_closes_the_turn(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        reset_adapter_state: dict[str, mock.MagicMock],
+    ) -> None:
+        self._send(monkeypatch, "task-run")
+        adapter.on_backend_response({"state": "final", "run_id": "task-run"})
+        self._send(monkeypatch, "notification-run")
+        adapter.on_backend_response({"state": "final", "run_id": "notification-run"})
+
+        assert reset_adapter_state["aui"].call_args_list == [
+            mock.call("send_message_to_user", ""),
+            mock.call("send_message_to_user", ""),
+        ]
+
+    def test_late_empty_final_of_a_message_sent_mid_run_closes_the_turn(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        reset_adapter_state: dict[str, mock.MagicMock],
+    ) -> None:
+        """The working run had ended, so the message started a real run."""
+        clock = [100.0]
+        monkeypatch.setattr(
+            adapter, "time", types.SimpleNamespace(monotonic=lambda: clock[0])
+        )
+        self._send(monkeypatch, "task-run")
+        self._send(monkeypatch, "notification-run")
+        clock[0] += 5.0
+        adapter.on_backend_response({"state": "final", "run_id": "notification-run"})
+
+        reset_adapter_state["aui"].assert_called_once_with("send_message_to_user", "")
+
+    def test_reply_from_a_message_sent_mid_run_closes_the_turn(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        reset_adapter_state: dict[str, mock.MagicMock],
+    ) -> None:
+        self._send(monkeypatch, "task-run")
+        self._send(monkeypatch, "notification-run")
+        adapter.on_backend_response(
+            {"state": "final", "run_id": "notification-run", "message": "Noted."}
+        )
+
+        reset_adapter_state["aui"].assert_called_once_with(
+            "send_message_to_user", "Noted."
+        )
 
     def test_error_with_text_emits_boundary(
         self,
