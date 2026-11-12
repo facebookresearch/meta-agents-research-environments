@@ -156,8 +156,8 @@ def _calculate_success_rate_stats(df: pl.DataFrame) -> dict[str, float]:
     """Calculate success rate statistics from validated runs only.
 
     Success rate is calculated only from runs with non-null success_numeric values.
-    Exception runs are counted as failures (success_numeric = 0.0).
-    No validation runs are excluded from success rate calculations.
+    Exception runs and no validation runs both have a null success_numeric and
+    are therefore excluded from success rate calculations.
 
     :param df: DataFrame with scenario results
     :type df: pl.DataFrame
