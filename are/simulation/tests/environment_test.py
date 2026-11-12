@@ -22,6 +22,8 @@ from are.simulation.types import (
     CompletedEvent,
     ConditionCheckEvent,
     Event,
+    EventMetadata,
+    EventType,
     event_registered,
 )
 from are.simulation.utils import get_state_dict
@@ -285,3 +287,62 @@ def test_resolve_arg_placeholders_with_whitespace(setup_event_and_past_events):
     event.action.args = {"arg1": " {{event1.key1}} "}
     resolved_event = Environment().resolve_arg_placeholders(event, past_events)
     assert resolved_event.action.resolved_args["arg1"] == "resolved_value1"
+
+
+def test_resolve_arg_placeholders_keeps_later_args_when_a_key_is_missing(
+    setup_event_and_past_events,
+):
+    """A placeholder pointing at a missing key must not drop the other arguments.
+
+    ``Action.execute`` uses ``resolved_args`` whenever it is non-empty, so any
+    argument left out of it is dropped from the call.
+    """
+    event, past_events = setup_event_and_past_events
+    event.action.args = {
+        "arg1": "{{event1.missing_key}}",
+        "arg2": "value2",
+        "arg3": "{{event1.key1}}",
+    }
+
+    resolved_event = Environment().resolve_arg_placeholders(event, past_events)
+
+    assert resolved_event.action.resolved_args == {
+        # The unresolvable placeholder is left as-is, as for an unknown event id.
+        "arg1": "{{event1.missing_key}}",
+        "arg2": "value2",
+        "arg3": "resolved_value1",
+    }
+
+
+def test_event_with_unresolvable_placeholder_still_gets_its_other_args():
+    """An environment event must reach its app with every argument it declares."""
+    env = Environment(EnvironmentConfig(start_time=0, duration=10))
+    email_app = EmailClientApp()
+    env.register_apps([email_app])
+
+    # A past agent event that raised, so its return value is None and no key can
+    # be looked up inside it.
+    failed_agent_event = CompletedEvent(
+        event_id="agent_send",
+        event_type=EventType.AGENT,
+        action=Event.from_function(
+            email_app.send_email_to_user_only, sender="agent@example.com"
+        ).action,
+        metadata=EventMetadata(exception="boom", return_value=None),
+        event_time=0.0,
+    )
+
+    env_event = Event.from_function(
+        email_app.send_email_to_user_only,
+        sender="sales@example.com",
+        subject="{{agent_send.email_id}}",
+        content="Your order has shipped.",
+    ).with_type(EventType.ENV)
+    env_event.event_time = 1.0
+
+    completed = env.resolve_arg_placeholders(env_event, [failed_agent_event]).execute()
+
+    assert completed.metadata.exception is None
+    inbox = email_app.folders[EmailFolderName.INBOX].emails
+    assert len(inbox) == 1
+    assert inbox[0].content == "Your order has shipped."
