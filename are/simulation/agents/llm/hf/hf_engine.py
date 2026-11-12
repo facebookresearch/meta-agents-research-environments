@@ -47,6 +47,7 @@ def _is_retryable_http_error(error: Exception) -> bool:
 class HuggingFaceModelConfig(BaseModel):
     model_name: str
     provider: str
+    endpoint: str | None = None
 
 
 class HuggingFaceLLMEngine(LLMEngine):
@@ -66,10 +67,15 @@ class HuggingFaceLLMEngine(LLMEngine):
         # api_key will need to be parametrizable to the provider's token to be more general
         api_key = os.getenv("HF_INFERENCE_TOKEN") or os.getenv("HF_TOKEN")
 
+        # `base_url` points the client at an OpenAI-compatible endpoint instead of
+        # the provider's own hosted one. It must stay None when no endpoint is
+        # configured: InferenceClient rejects `base_url` together with `model`, and
+        # the model name is passed per request in `chat_completion`.
         self.client = InferenceClient(
             bill_to=os.getenv("HF_BILL_TO") or None,
             provider=model_config.provider,  # type: ignore
             api_key=api_key,
+            base_url=model_config.endpoint,
         )
 
     def _convert_message_to_hf_format(self, message: dict[str, Any]) -> dict[str, Any]:
