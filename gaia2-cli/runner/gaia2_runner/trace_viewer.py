@@ -354,6 +354,13 @@ def generate_all(
                 scenario_summaries.append(summary)
         except Exception as exc:
             logger.warning("Failed to generate trace for %s: %s", sid, exc)
+            # A scenario whose trace page could not be rendered has still run.
+            # Dropping it here would remove it from index.html and from the
+            # pass rate computed over these summaries, so the published rate
+            # would be taken over a subset of the scenarios. Fall back to the
+            # scenario's own result.json, which is what the console summary
+            # reads.
+            scenario_summaries.append(_fallback_summary(output_dir, sid, exc))
 
     # Generate index page using pre-computed summaries (no re-reading files)
     _generate_index_page(
@@ -367,6 +374,43 @@ def generate_all(
         output_dir,
     )
     return scenario_summaries
+
+
+def _fallback_summary(
+    output_dir: Path, scenario_id: str, exc: BaseException
+) -> dict[str, Any]:
+    """Build an index summary for a scenario whose trace page failed to render.
+
+    Only ``result.json`` is read, so this cannot fail on the malformed trace
+    body that broke the page. The verdict therefore stays in ``index.html``
+    and in the pass rate even when the trace cannot be displayed.
+    """
+    result = _load_json(output_dir / scenario_id / "result.json")
+    has_result = bool(result)
+    success = _get_success(result) if has_result else None
+    status, _ = _result_status(result, has_result=has_result)
+    model = str(result.get("model") or "")
+
+    return {
+        "_scenario_id": scenario_id,
+        "_status": status.lower(),
+        "_is_complete": has_result,
+        "success": success,
+        "num_llm_calls": int(result.get("num_llm_calls") or 0),
+        "total_input_tokens": int(result.get("total_input_tokens") or 0),
+        "total_output_tokens": int(result.get("total_output_tokens") or 0),
+        "total_latency_ms": int(result.get("total_latency_ms") or 0),
+        "_num_tool_calls": 0,
+        "model": model,
+        "provider": str(result.get("provider") or "")
+        or _infer_provider_from_model(model),
+        "_diagnostics": {},
+        "error": result.get("error") or f"Trace page could not be rendered: {exc}",
+        "failure_reasons": result.get("failure_reasons"),
+        "rationale": result.get("rationale"),
+        "_explorer_url": None,
+        "_trace_render_failed": True,
+    }
 
 
 def _relpath_url(target: Path, base_dir: Path) -> str:
@@ -2307,7 +2351,7 @@ def _generate_trace_page(
         total_output = 0
         total_latency = 0
         for e in trace_entries:
-            u = e.get("response", {}).get("usage", {})
+            u = (e.get("response") or {}).get("usage") or {}
             total_input += (
                 _int_or_zero(u.get("input_tokens"))
                 + _int_or_zero(u.get("prompt_tokens"))
@@ -2579,8 +2623,8 @@ def _render_unified_trace(
     daemon_turn_idx = 0  # next daemon turn to render
 
     for i, entry in enumerate(entries):
-        resp = entry.get("response", {})
-        usage = resp.get("usage", {})
+        resp = entry.get("response") or {}
+        usage = resp.get("usage") or {}
         request_messages = entry.get("request_messages", [])
         seq = entry.get("seq", i + 1)
         latency_ms = entry.get("latency_ms", 0)
