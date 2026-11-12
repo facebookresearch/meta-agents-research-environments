@@ -751,6 +751,7 @@ class Environment(AbstractEnvironment):
                     continue
 
                 return_value = past_event.metadata.return_value
+                resolved = True
 
                 for key in parts[1:]:
                     if isinstance(return_value, dict) and key in return_value:
@@ -759,9 +760,16 @@ class Environment(AbstractEnvironment):
                         self.log_error(
                             f"Failed to find key {key} in return value of event {past_event.event_id}"
                         )
-                        return event
+                        # Leave this argument at the placeholder it already holds in
+                        # resolved_args and carry on with the remaining arguments.
+                        # Returning here would leave them out of resolved_args, and
+                        # Action.execute uses resolved_args whenever it is non-empty,
+                        # so they would be dropped from the call entirely.
+                        resolved = False
+                        break
 
-                event.action.resolved_args[arg_name] = return_value
+                if resolved:
+                    event.action.resolved_args[arg_name] = return_value
 
                 break
 
