@@ -5,6 +5,7 @@
 # the root directory of this source tree.
 
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable
 
@@ -25,6 +26,8 @@ from are.simulation.validation.prompts import (
     USER_MESSAGE_SUBTASK_EXTRACTOR_PROMPT_TEMPLATES,
     LLMFunctionTemplates,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class LLMFunctionBase(ABC):
@@ -139,10 +142,26 @@ class LLMChecker(LLMFunctionBase):
             # Parse the response
             if response is None:
                 continue
-            if self.success_str in response:
+            # Match the verdict markers case-insensitively: both LLM engines in
+            # this repo lowercase "True"/"False" in every response they return
+            # (LiteLLMEngine.chat_completion, HuggingFaceEngine.chat_completion),
+            # so a judge that correctly emits "[[False]]" is seen here as
+            # "[[false]]". A case-sensitive match abstains on every vote, and the
+            # resulting None is indistinguishable from a genuine rejection at the
+            # call site. This mirrors gaia2-cli/core/gaia2_core/judge/checkers.py.
+            response_lower = response.lower()
+            if self.success_str.lower() in response_lower:
                 votes.append(True)
-            elif self.failure_str in response:
+            elif self.failure_str.lower() in response_lower:
                 votes.append(False)
+            else:
+                logger.warning(
+                    "LLM checker found neither %s nor %s in the judge response; "
+                    "abstaining from this vote. Response: %s",
+                    self.success_str,
+                    self.failure_str,
+                    response[:300],
+                )
         if len(votes) == 0:
             return None
         return sum(votes) >= len(votes) / 2

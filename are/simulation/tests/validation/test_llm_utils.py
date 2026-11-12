@@ -349,6 +349,72 @@ class TestLLMChecker(unittest.TestCase):
 
         self.assertTrue(result)  # 2 successes out of 4, not >= 2
 
+    @patch("are.simulation.validation.utils.llm_utils.LLMFunction")
+    def test_call_verdict_markers_are_case_insensitive(self, mock_llm_function_class):
+        """Lowercased verdict markers must still be parsed.
+
+        Both LLM engines in this repo rewrite "True"/"False" to lowercase in
+        every response they return, so a judge emitting "[[False]]" reaches the
+        checker as "[[false]]".
+        """
+        mock_judge = MagicMock()
+        mock_llm_function_class.return_value = mock_judge
+
+        checker = LLMChecker(
+            engine=self.mock_engine,
+            prompt_templates=self.mock_prompt_templates,
+            num_votes=1,
+            success_str="[[True]]",
+            failure_str="[[False]]",
+        )
+
+        mock_judge.return_value = "Reasoning, final verdict: [[false]]"
+        self.assertIs(checker({"user_arg": "test"}), False)
+
+        mock_judge.return_value = "Reasoning, final verdict: [[true]]"
+        self.assertIs(checker({"user_arg": "test"}), True)
+
+
+class TestLLMCheckerWithRealEngine(unittest.TestCase):
+    """End-to-end: the engine's own response rewriting must not blind the checker."""
+
+    def _engine(self, judge_response: str):
+        from are.simulation.agents.llm.litellm.litellm_engine import (
+            LiteLLMEngine,
+            LiteLLMModelConfig,
+        )
+
+        engine = LiteLLMEngine(LiteLLMModelConfig(model_name="gpt-4o", provider="mock"))
+        engine.mock_response = judge_response
+        return engine
+
+    def test_engine_lowercases_verdict_marker(self):
+        engine = self._engine("Final verdict: [[False]]")
+        response, _ = engine([{"role": "user", "content": "x"}])
+        # Documents the root cause this fix has to tolerate.
+        self.assertIn("[[false]]", response)
+
+    def test_checker_parses_verdict_returned_by_engine(self):
+        for emitted, expected in (
+            ("The response is not coherent.\nFinal verdict: [[False]]", False),
+            ("The response is coherent.\nFinal verdict: [[True]]", True),
+        ):
+            with self.subTest(emitted=emitted):
+                checker = LLMChecker(
+                    engine=self._engine(emitted),
+                    prompt_templates=SANITY_CHECKER_PROMPT_TEMPLATES,
+                    num_votes=1,
+                    success_str="[[True]]",
+                    failure_str="[[False]]",
+                )
+                verdict = checker(
+                    {"task": "Send a message to the user", "agent_action_call": "..."}
+                )
+                self.assertIsNotNone(
+                    verdict, "checker abstained on a well-formed judge verdict"
+                )
+                self.assertIs(verdict, expected)
+
 
 class TestBuildLLMCheckers(unittest.TestCase):
     def setUp(self):
