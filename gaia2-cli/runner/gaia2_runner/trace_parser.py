@@ -1209,7 +1209,7 @@ def extract_provider(
             if "/responses" in url or "/chat/completions" in url:
                 return "openai-compat"
 
-        resp = entry.get("response", {})
+        resp = entry.get("response") or {}
         if resp.get("stop_reason"):
             if "content" in resp and isinstance(resp["content"], list):
                 return "anthropic"
