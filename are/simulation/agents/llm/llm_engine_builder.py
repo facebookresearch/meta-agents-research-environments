@@ -167,7 +167,9 @@ class LLMEngineBuilder(AbstractLLMEngineBuilder):
         # Ensure provider is not None before passing it to HuggingFaceModelConfig
         provider = engine_config.provider or "default"
         model_config = HuggingFaceModelConfig(
-            model_name=engine_config.model_name, provider=provider
+            model_name=engine_config.model_name,
+            provider=provider,
+            endpoint=engine_config.endpoint,
         )
         return HuggingFaceLLMEngine(model_config=model_config)
 
