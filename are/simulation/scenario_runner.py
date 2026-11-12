@@ -367,9 +367,13 @@ class ScenarioRunner:
         logger.info(
             f"{'✅' if result.success is True else '❌' if result.success is False else '⚠️'} Result: {result}"
         )
-        # Convert exception into failure
-        if result.success is None and result.exception is not None:
-            result.success = False
+        # A run that raised keeps success=None so that it is reported as an
+        # exception run rather than a validated failure. Overwriting it with
+        # False here made the "exception" state of get_scenario_result_info()
+        # and MultiScenarioValidationResult unreachable, which left
+        # output.jsonl rows carrying an exception_type while
+        # benchmark_stats.json reported exception_runs == 0 and counted the
+        # crashed runs in the success-rate denominator.
         # Add run duration to result
         result.duration = time.time() - start_time
         return result
