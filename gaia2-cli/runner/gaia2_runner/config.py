@@ -88,6 +88,9 @@ class JudgeConfig:
     # {"chat_template_kwargs": {"enable_thinking": true}} — without it, the
     # judge model returns content=null on every verdict.
     extra_body: dict | None = None
+    # Sampling temperature of the judge calls. None keeps the judge's default
+    # of 0. Set it only when the judge model's API rejects temperature=0.
+    temperature: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -376,6 +379,7 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
             "api_key_env",
             "prompt_version",
             "extra_body",
+            "temperature",
         },
     )
     _validate_allowed_keys(
@@ -550,6 +554,9 @@ def load_runner_toml_config(config_path: str) -> RunnerTomlConfig:
         ),
         extra_body=_as_optional_dict(
             judge_table.get("extra_body"), "[judge].extra_body"
+        ),
+        temperature=_as_optional_float(
+            judge_table.get("temperature"), "[judge].temperature"
         ),
     )
 

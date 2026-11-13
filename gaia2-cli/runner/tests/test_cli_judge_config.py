@@ -251,3 +251,24 @@ class TestJudgePromptVersion:
             judge_provider="openai-compat",
         )
         assert "GAIA2_JUDGE_EXTRA_BODY" not in env
+
+    def test_temperature_is_passed_to_container(self) -> None:
+        env = _build_container_env(
+            "localhost/gaia2-oc:latest",
+            base_url=None,
+            thinking="off",
+            judge_model="gpt-oss-120b",
+            judge_provider="openai-compat",
+            judge_temperature=1.0,
+        )
+        assert float(env["GAIA2_JUDGE_TEMPERATURE"]) == 1.0
+
+    def test_no_temperature_omits_env(self) -> None:
+        env = _build_container_env(
+            "localhost/gaia2-oc:latest",
+            base_url=None,
+            thinking="off",
+            judge_model="gpt-oss-120b",
+            judge_provider="openai-compat",
+        )
+        assert "GAIA2_JUDGE_TEMPERATURE" not in env

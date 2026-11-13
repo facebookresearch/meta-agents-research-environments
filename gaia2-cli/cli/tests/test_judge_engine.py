@@ -75,6 +75,26 @@ def test_create_litellm_engine_forwards_extra_body(monkeypatch, extra_body) -> N
     assert ("extra_body" in calls[0]) is (extra_body is not None)
 
 
+def test_create_litellm_engine_forwards_temperature(monkeypatch) -> None:
+    calls: list[dict] = []
+    monkeypatch.setitem(
+        sys.modules,
+        "litellm",
+        SimpleNamespace(
+            completion=lambda **kw: (
+                calls.append(kw) or _mock_completion_response("hello")
+            )
+        ),
+    )
+
+    engine = create_litellm_engine(
+        model="judge-model", provider="openai", validate=False, temperature=1.0
+    )
+    engine([{"role": "user", "content": "Say hello"}])
+
+    assert calls[0]["temperature"] == 1.0
+
+
 def test_create_litellm_engine_raises_rate_limit_error(monkeypatch) -> None:
     def completion(**kwargs):
         raise RuntimeError("429 Too Many Requests")
