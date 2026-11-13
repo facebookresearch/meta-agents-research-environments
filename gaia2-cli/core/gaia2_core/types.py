@@ -111,6 +111,9 @@ class JudgmentResult(BaseModel):
     success: bool
     agent_event_id_to_oracle_event_id: dict[str, str] = Field(default_factory=dict)
     failure_reason: str = ""
+    # True when the turn was not accepted only because a judge LLM call
+    # returned no answer: the agent was neither shown right nor wrong.
+    inconclusive: bool = False
 
 
 class ConditionCheck(BaseModel):

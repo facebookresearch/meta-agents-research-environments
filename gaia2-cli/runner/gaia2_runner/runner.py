@@ -266,7 +266,26 @@ class ContainerRunner:
 
             daemon_status = daemon_status_data or {}
             daemon_judgment = daemon_status.get("judgment")
-            if daemon_judgment is not None:
+            if daemon_judgment is not None and daemon_judgment.get("inconclusive"):
+                # The judge LLM returned no answer, so the agent was neither
+                # shown right nor wrong. Report an error (success=None) so the
+                # scenario stays out of the pass rate and --retry re-runs it.
+                reason = daemon_judgment.get("failure_reason", "")
+                error_msg = f"Judge inconclusive (judge LLM call failed): {reason}"
+                logger.warning(
+                    "Inconclusive in-container judgment for %s: %s",
+                    scenario_id,
+                    reason,
+                )
+                result = {
+                    "scenario_id": scenario_id,
+                    "success": None,
+                    "error": error_msg,
+                    "num_agent_events": len(convert_events_jsonl(events_raw)),
+                    "agent_response": agent_response,
+                    "judged_in_container": True,
+                }
+            elif daemon_judgment is not None:
                 success = daemon_judgment.get("success", False)
                 result = {
                     "scenario_id": scenario_id,

@@ -676,6 +676,75 @@ class TestGracefulDegradation:
         # Hard checks pass (datetime, attendees match), soft skipped
         assert result.success is True
 
+    @staticmethod
+    def _calendar_judge(engine):
+        from gaia2_core.judge.judge import Judge
+
+        oracle_events = [
+            _oracle_event(
+                "o1",
+                "CalendarApp",
+                "add_calendar_event",
+                {
+                    "title": "Meeting",
+                    "description": "Team sync",
+                    "start_datetime": "2024-01-15 10:00:00",
+                    "end_datetime": "2024-01-15 11:00:00",
+                    "attendees": ["alice"],
+                },
+            ),
+        ]
+        return Judge(
+            turn_to_oracle_events=[oracle_events],
+            turn_to_oracle_graph=[{"o1": []}],
+            tasks=["Schedule meeting"],
+            engine=engine,
+        )
+
+    @staticmethod
+    def _calendar_agent_event(start_datetime: str):
+        return _agent_event(
+            "a1",
+            "CalendarApp",
+            "add_calendar_event",
+            {
+                "title": "Different Title",
+                "description": "Different desc",
+                "start_datetime": start_datetime,
+                "end_datetime": "2024-01-15 11:00:00",
+                "attendees": ["alice"],
+            },
+        )
+
+    def test_failed_llm_call_is_inconclusive(self):
+        """A judge LLM that returns no answer must not read as a plain FAIL."""
+
+        def failing_engine(messages, **kwargs):
+            return None, {"error": "400 temperature not supported"}
+
+        judge = self._calendar_judge(failing_engine)
+        result = judge.judge_turn(
+            0, [self._calendar_agent_event("2024-01-15 10:00:00")]
+        )
+
+        assert result.success is False
+        assert result.inconclusive is True
+        assert "inconclusive" in result.failure_reason
+
+    def test_hard_check_failure_is_not_inconclusive(self):
+        """A hard-check mismatch is a real failure even if the LLM is down."""
+
+        def failing_engine(messages, **kwargs):
+            return None, {"error": "400 temperature not supported"}
+
+        judge = self._calendar_judge(failing_engine)
+        result = judge.judge_turn(
+            0, [self._calendar_agent_event("2024-01-15 14:00:00")]
+        )
+
+        assert result.success is False
+        assert result.inconclusive is False
+
     def test_empty_oracle_events_auto_pass(self):
         from gaia2_core.judge.judge import Judge
 
