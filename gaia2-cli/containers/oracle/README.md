@@ -74,6 +74,7 @@ benchmark still needs judge settings if you want an in-container verdict:
 | `GAIA2_JUDGE_MODEL` | Judge model name |
 | `GAIA2_JUDGE_BASE_URL` | Optional judge endpoint override |
 | `GAIA2_JUDGE_API_KEY` | Optional explicit judge API key |
+| `GAIA2_JUDGE_TEMPERATURE` | Optional judge sampling temperature (default `0`) |
 | `GAIA2_TIME_SPEED` | Optional time acceleration for time scenarios |
 
 In normal benchmark use, the host runner sets these env vars for you.

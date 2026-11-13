@@ -547,6 +547,7 @@ def _build_container_env(
     judge_api_key: str | None = None,
     judge_prompt_version: str | None = None,
     judge_extra_body: dict | None = None,
+    judge_temperature: float | None = None,
     context_window: int | None = None,
 ) -> dict[str, str]:
     from .container_env import detect_profile
@@ -580,6 +581,8 @@ def _build_container_env(
         # as --judge-extra-body '{"chat_template_kwargs":{"enable_thinking":true}}'.
         # eventd.py parses it back with json.loads.
         container_env["GAIA2_JUDGE_EXTRA_BODY"] = json.dumps(judge_extra_body)
+    if judge_temperature is not None:
+        container_env["GAIA2_JUDGE_TEMPERATURE"] = str(judge_temperature)
     if base_url:
         for key in detect_profile(image).base_url_keys:
             container_env[key] = base_url
@@ -1436,6 +1439,7 @@ def _build_execution_config(
     judge_api_key: str | None,
     judge_prompt_version: str | None = None,
     judge_extra_body: dict | None = None,
+    judge_temperature: float | None = None,
     volumes: tuple[str, ...],
     notification_mode: str,
     time_speed: float | None,
@@ -1483,6 +1487,7 @@ def _build_execution_config(
             judge_api_key=resolved_judge_api_key,
             judge_prompt_version=judge_prompt_version,
             judge_extra_body=judge_extra_body,
+            judge_temperature=judge_temperature,
             context_window=context_window,
         ),
         provider=resolved_provider,
@@ -2718,6 +2723,7 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             judge_api_key=config.judge.api_key,
             judge_prompt_version=config.judge.prompt_version,
             judge_extra_body=config.judge.extra_body,
+            judge_temperature=config.judge.temperature,
             volumes=config.agent.volumes,
             notification_mode=config.run.notification_mode,
             time_speed=config.run.time_speed,
@@ -2799,6 +2805,7 @@ def run_config(config_path: str, retry: bool, dry_run: bool) -> None:
             judge_api_key=config.judge.api_key,
             judge_prompt_version=config.judge.prompt_version,
             judge_extra_body=config.judge.extra_body,
+            judge_temperature=config.judge.temperature,
             volumes=config.agent.volumes,
             notification_mode=config.run.notification_mode,
             time_speed=config.run.time_speed,

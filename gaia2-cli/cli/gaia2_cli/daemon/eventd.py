@@ -114,6 +114,7 @@ class Gaia2EventDaemon:
         judge_api_key: str | None = None,
         judge_prompt_version: str | None = None,
         judge_extra_body: dict | None = None,
+        judge_temperature: float = 0.0,
         poll_interval: float = 1.0,
         log_path: str | None = None,
         notify_url: str | None = None,
@@ -143,6 +144,7 @@ class Gaia2EventDaemon:
         self.judge_api_key = judge_api_key
         self.judge_prompt_version = judge_prompt_version
         self.judge_extra_body = judge_extra_body
+        self.judge_temperature = judge_temperature
         self.poll_interval = poll_interval
         self.notify_url = notify_url
         self.faketime_path = Path(faketime_path) if faketime_path else None
@@ -323,6 +325,7 @@ class Gaia2EventDaemon:
                 validate=False,
                 api_key=self.judge_api_key,
                 extra_body=self.judge_extra_body,
+                temperature=self.judge_temperature,
             )
             logger.info(
                 "Judge LLM engine: model=%s provider=%s base_url=%s",
@@ -1224,6 +1227,13 @@ class Gaia2EventDaemon:
     "Ignored by non-vLLM providers (vLLM Jinja templates ignore unused kwargs).",
 )
 @click.option(
+    "--judge-temperature",
+    default=0.0,
+    type=float,
+    help="Sampling temperature for the judge LLM. Keep the default of 0 unless "
+    "the judge model's API rejects it: a rejected call cannot produce a verdict.",
+)
+@click.option(
     "--poll-interval",
     default=1.0,
     type=float,
@@ -1274,6 +1284,7 @@ def main(
     judge_api_key: str | None,
     judge_prompt_version: str | None,
     judge_extra_body: str | None,
+    judge_temperature: float,
     poll_interval: float,
     notify_url: str | None,
     faketime_path: str | None,
@@ -1324,6 +1335,7 @@ def main(
         judge_api_key=judge_api_key,
         judge_prompt_version=judge_prompt_version,
         judge_extra_body=parsed_extra_body,
+        judge_temperature=judge_temperature,
         poll_interval=poll_interval,
         log_path=log_path,
         notify_url=notify_url,

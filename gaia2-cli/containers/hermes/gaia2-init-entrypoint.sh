@@ -121,6 +121,7 @@ if [ "${GAIA2_DAEMON_DISABLE:-0}" != "1" ] && [ -f "$CUSTOM_SCENARIO" ]; then
             ${GAIA2_JUDGE_API_KEY:+--judge-api-key '$GAIA2_JUDGE_API_KEY'} \
             ${GAIA2_JUDGE_PROMPT_VERSION:+--judge-prompt-version $GAIA2_JUDGE_PROMPT_VERSION} \
             ${GAIA2_JUDGE_EXTRA_BODY:+--judge-extra-body '$GAIA2_JUDGE_EXTRA_BODY'} \
+            ${GAIA2_JUDGE_TEMPERATURE:+--judge-temperature $GAIA2_JUDGE_TEMPERATURE} \
             ${GAIA2_TIME_SPEED:+--time-speed $GAIA2_TIME_SPEED} \
             ${GAIA2_IDLE_TIMEOUT:+--idle-timeout $GAIA2_IDLE_TIMEOUT} \
             >> /tmp/gaia2-eventd.log 2>&1 &

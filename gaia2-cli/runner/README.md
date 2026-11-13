@@ -190,6 +190,11 @@ For a practical default judge, the shipped examples use Anthropic Sonnet 4.6.
 Separately, we calibrated `gpt-oss-120b` with `low` reasoning as the reference
 judge configuration.
 
+The judge calls its model at `temperature = 0`. Some model APIs reject that
+value; the judge then gets no answer and cannot reach a verdict. For such a
+model, set `[judge].temperature` to a value it accepts, for example
+`temperature = 1`.
+
 Target selection supports:
 
 - `scenario = "/path/to/scenario.json"` for one scenario

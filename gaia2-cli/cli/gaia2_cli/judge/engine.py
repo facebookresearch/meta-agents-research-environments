@@ -38,11 +38,16 @@ def create_litellm_engine(
     validate: bool = True,
     api_key: str | None = None,
     extra_body: dict | None = None,
+    temperature: float = 0,
 ) -> Callable | None:
     """Create an LLM engine using litellm.
 
     ``extra_body`` is forwarded verbatim to ``litellm.completion`` for
     provider-specific request-body extensions; ``None`` (default) is a no-op.
+
+    ``temperature`` is the sampling temperature of every judge call. The
+    default of 0 is the calibrated setting; override it only for judge models
+    whose API rejects ``temperature=0``.
     """
     try:
         import litellm  # noqa: F811
@@ -76,7 +81,7 @@ def create_litellm_engine(
                 "api_base": effective_api_base,
                 "api_key": api_key,
                 "max_retries": max_retries,
-                "temperature": 0,
+                "temperature": temperature,
             }
             if extra_body is not None:
                 completion_kwargs["extra_body"] = extra_body

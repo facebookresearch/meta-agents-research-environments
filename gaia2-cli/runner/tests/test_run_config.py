@@ -132,7 +132,35 @@ output_dir = "out"
 
     assert config.judge.prompt_version is None
     assert config.judge.extra_body is None
+    assert config.judge.temperature is None
     assert config.run.idle_timeout is None
+
+
+def test_load_runner_toml_config_reads_judge_temperature(tmp_path: Path) -> None:
+    _write_scenario(tmp_path / "scenario.json", "scenario_1")
+
+    config_path = tmp_path / "eval.toml"
+    config_path.write_text("""
+[target]
+scenario = "scenario.json"
+
+[agent]
+image = "localhost/gaia2-hermes:latest"
+provider = "anthropic"
+model = "agent-model"
+
+[judge]
+provider = "judge-provider"
+model = "judge-model"
+temperature = 1
+
+[run]
+output_dir = "out"
+""")
+
+    config = load_runner_toml_config(str(config_path))
+
+    assert config.judge.temperature == 1.0
 
 
 def test_load_runner_toml_config_rejects_non_positive_idle_timeout(
