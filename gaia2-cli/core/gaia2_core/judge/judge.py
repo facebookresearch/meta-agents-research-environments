@@ -173,6 +173,10 @@ class Judge:
         # partial ID mapping covers as many placeholders as possible.
         match_details: list[dict] = []
         first_failure: str | None = None
+        # A turn is inconclusive when every unmatched oracle event is
+        # unmatched because of a failed judge LLM call. One oracle event that
+        # definitely has no match makes the turn a plain failure.
+        definite_failure = False
         for oracle_event in oracle_events:
             # Resolve placeholders in oracle args using matched agent returns
             oracle_event = self._resolve_oracle_placeholders(oracle_event)
@@ -189,11 +193,14 @@ class Judge:
                 {
                     "oracle_id": oracle_event.event_id,
                     "oracle_tool": oracle_event.tool_name,
-                    "matched": matched,
+                    "matched": bool(matched),
+                    "inconclusive": matched is None,
                     "reason": reason,
                     "judge_output": judge_output,
                 }
             )
+            if matched is False:
+                definite_failure = True
             if not matched:
                 logger.info(
                     "JUDGE REJECT turn %d: %s — %s",
@@ -214,6 +221,7 @@ class Judge:
                 success=False,
                 failure_reason=first_failure,
                 agent_event_id_to_oracle_event_id=mapping,
+                inconclusive=not definite_failure,
             )
             self._log_judgment(
                 turn_idx, result, agent_events, oracle_events, match_details
@@ -245,6 +253,7 @@ class Judge:
         record = {
             "turn": turn_idx,
             "success": result.success,
+            "inconclusive": result.inconclusive,
             "failure_reason": result.failure_reason or None,
             "agent_events": [
                 {
@@ -401,8 +410,13 @@ class Judge:
         agent_events: list[CompletedEvent],
         base_idx: int,
         turn_idx: int,
-    ) -> tuple[bool, str, str]:
-        """Try to match an oracle event with an unmatched agent event."""
+    ) -> tuple[bool | None, str, str]:
+        """Try to match an oracle event with an unmatched agent event.
+
+        The first element is True on a match and False when no agent event
+        can match. It is None when no agent event matched but at least one
+        candidate could not be judged because the judge LLM call failed.
+        """
         if oracle_event.event_type in ("ENV", "USER"):
             return self._match_env_oracle_event(oracle_event, agent_events, base_idx)
         return self._match_agent_oracle_event(
@@ -432,13 +446,14 @@ class Judge:
         agent_events: list[CompletedEvent],
         base_idx: int,
         turn_idx: int,
-    ) -> tuple[bool, str, str]:
+    ) -> tuple[bool | None, str, str]:
         """Match AGENT oracle event using tool judges + causality + time."""
         from gaia2_core.judge.checkers import mild_compare
 
         oracle_tool = oracle_event.tool_name
         failures: list[str] = []
         last_judge_output = ""
+        any_inconclusive = False
 
         for i, agent_event in enumerate(agent_events):
             global_idx = base_idx + i
@@ -464,6 +479,7 @@ class Judge:
 
             if matched is None:
                 # Inconclusive (LLM failure)
+                any_inconclusive = True
                 failures.append(f"{agent_event.event_id}: inconclusive ({rationale})")
                 continue
 
@@ -538,10 +554,11 @@ class Judge:
             self._record_match(global_idx, oracle_event.event_id, agent_event.event_id)
             return True, "", last_judge_output
 
-        # No match
+        # No match. None rather than False when a candidate could not be
+        # judged: that candidate might have been the match.
         failure_detail = "; ".join(failures) if failures else "no candidates"
         return (
-            False,
+            None if any_inconclusive else False,
             f"Cannot match {oracle_tool} ({oracle_event.event_id}): {failure_detail}",
             last_judge_output,
         )

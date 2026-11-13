@@ -415,6 +415,34 @@ class TestScenarioTimeout:
         assert result["success"] is False
         assert "wrong args" in result["failure_reasons"][0]
 
+    def test_inconclusive_judgment_is_error(self, tmp_path: Path) -> None:
+        """A judge LLM failure is an error (success=None), not a FAIL."""
+        result = self._run_with_timeout(
+            tmp_path,
+            daemon_judgment={
+                "success": False,
+                "failure_reason": "a1: inconclusive (user_message_checker)",
+                "inconclusive": True,
+            },
+        )
+        assert result["success"] is None
+        assert "Judge inconclusive" in result["error"]
+        assert "failure_reasons" not in result
+        assert "reward" not in result
+
+    def test_conclusive_fail_stays_fail(self, tmp_path: Path) -> None:
+        """A verdict that carries inconclusive=False is still a FAIL."""
+        result = self._run_with_timeout(
+            tmp_path,
+            daemon_judgment={
+                "success": False,
+                "failure_reason": "wrong args",
+                "inconclusive": False,
+            },
+        )
+        assert result["success"] is False
+        assert result["reward"] == 0.0
+
     def test_no_duration_uses_response_timeout(self, tmp_path: Path) -> None:
         """Without duration, the CLI --timeout value is used."""
         scenario_path = _make_scenario(tmp_path, events=[_make_user_event()])

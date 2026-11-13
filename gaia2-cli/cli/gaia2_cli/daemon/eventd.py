@@ -93,6 +93,13 @@ def _is_send_message_to_user(entry: dict[str, Any]) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _verdict_label(result: Any) -> str:
+    """PASS, FAIL, or INCONCLUSIVE when the judge LLM returned no answer."""
+    if result.success:
+        return "PASS"
+    return "INCONCLUSIVE" if getattr(result, "inconclusive", False) else "FAIL"
+
+
 class Gaia2EventDaemon:
     """Always-on Gaia2 environment daemon.
 
@@ -609,7 +616,7 @@ class Gaia2EventDaemon:
                             if result is not None:
                                 logger.info(
                                     "Final turn judge: %s%s",
-                                    "PASS" if result.success else "FAIL",
+                                    _verdict_label(result),
                                     (
                                         f" — {result.failure_reason}"
                                         if result.failure_reason
@@ -670,7 +677,7 @@ class Gaia2EventDaemon:
             if result is not None:
                 logger.info(
                     "Final turn judge: %s%s",
-                    "PASS" if result.success else "FAIL",
+                    _verdict_label(result),
                     f" — {result.failure_reason}" if result.failure_reason else "",
                 )
                 self._final_judgment = result
@@ -708,6 +715,7 @@ class Gaia2EventDaemon:
             data["judgment"] = {
                 "success": self._final_judgment.success,
                 "failure_reason": self._final_judgment.failure_reason,
+                "inconclusive": getattr(self._final_judgment, "inconclusive", False),
             }
         status_path = self.state_dir / "daemon_status.json"
         tmp_path = status_path.with_suffix(".json.tmp")
